@@ -1170,6 +1170,28 @@ function handleOAuthReturn() {
   history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
 }
 
+async function getOAuthStartErrorMessage(error) {
+  const response = error?.context;
+  if (response && typeof response.status === "number") {
+    if (response.status === 404) {
+      return "The secure provider sign-in function is not deployed. Ask the site administrator to deploy oauth-start.";
+    }
+    if (response.status === 401) {
+      return "Your session has expired. Sign in again, then reconnect the provider.";
+    }
+    try {
+      const body = await response.clone().json();
+      if (typeof body?.error === "string" && body.error.trim()) return body.error;
+    } catch {
+      // The response may not contain JSON.
+    }
+  }
+  if (error?.name === "FunctionsFetchError") {
+    return "Could not reach secure provider sign-in. Check the deployed function and its APP_URL/CORS configuration.";
+  }
+  return error?.message || "Could not start provider sign-in. Check the setup and try again.";
+}
+
 async function beginProviderConnection(provider, button) {
   if (!supabase || !isSupabaseConfigured || !currentUserId) {
     showConnectionFeedback("Sign in to your University Hub account before connecting an external service.", "error");
@@ -1203,12 +1225,7 @@ async function beginProviderConnection(provider, button) {
     }
     window.location.assign(authorizationUrl.href);
   } catch (error) {
-    showConnectionFeedback(
-      error.message?.includes("Function")
-        ? "Provider sign-in is not ready yet. The site administrator must apply the OAuth migrations, configure provider credentials, and deploy the secure functions."
-        : error.message || "Could not start provider sign-in. Check the setup and try again.",
-      "error",
-    );
+    showConnectionFeedback(await getOAuthStartErrorMessage(error), "error");
     button.disabled = false;
   }
 }
