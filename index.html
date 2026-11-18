@@ -155,6 +155,10 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>
             Overview
           </a>
+          <a class="nav-link" href="#budget">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5h16M6.5 16V10m5 6V5m5 11v-8"/><circle cx="6.5" cy="8" r="1.5"/><circle cx="11.5" cy="3" r="1.5"/><circle cx="16.5" cy="6" r="1.5"/></svg>
+            Budget
+          </a>
           <a class="nav-link" href="#deadlines">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 10h16M8 14h3M8 17h6"/></svg>
             Deadlines
@@ -225,13 +229,18 @@
           <div class="announcement-feed" id="announcement-feed"></div>
         </section>
 
-        <section class="search-row" aria-label="Search your workspace">
+        <form class="search-row" id="workspace-search-form" aria-label="Search your workspace">
           <label class="search-box">
             <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.7" cy="8.7" r="5.7"/><path d="m13 13 4 4"/></svg>
-            <input id="workspace-search" type="search" placeholder="Search deadlines, files, emails and notes..." autocomplete="off" />
-            <kbd>⌘ K</kbd>
+            <input id="workspace-search" type="search" placeholder="Ask a question or find a file across your connected services..." autocomplete="off" />
+            <kbd>Enter</kbd>
           </label>
-          <p class="refresh-meta" id="refresh-meta">Your workspace at a glance</p>
+          <button class="button button-dark search-submit" id="workspace-search-submit" type="submit">Search <span aria-hidden="true">↗</span></button>
+          <p class="refresh-meta" id="refresh-meta">Queries search connected services; optional AI summaries use titles only.</p>
+        </form>
+
+        <section class="search-results-panel" id="workspace-search-results" aria-label="Search conversation" hidden>
+          <div class="search-conversation" id="workspace-search-conversation" role="log" aria-live="polite" aria-relevant="additions"></div>
         </section>
 
         <section class="metrics-grid" aria-label="Workspace summary">
@@ -253,6 +262,36 @@
             <p class="metric-value"><span id="connected-count">0</span> <span class="metric-divider">/</span> 8</p>
             <p class="metric-caption">Your workspace is getting started</p>
           </article>
+        </section>
+
+        <section class="overview-budget" aria-labelledby="overview-budget-title">
+          <div class="overview-budget-header">
+            <div><p class="eyebrow">Money, in perspective</p><h2 id="overview-budget-title">Expenditure</h2></div>
+            <div class="overview-budget-actions">
+              <div class="budget-period-switch" role="group" aria-label="Overview budget period">
+                <button type="button" class="is-selected" data-overview-period="weekly" aria-pressed="true">Week</button>
+                <button type="button" data-overview-period="monthly" aria-pressed="false">Month</button>
+              </div>
+              <button class="button button-outline" id="overview-add-expense" type="button">Add expense</button>
+            </div>
+          </div>
+          <div id="overview-budget-empty" class="overview-budget-empty">
+            <p>Set a spending limit to see what’s left for this period.</p>
+            <a class="button button-dark" href="#budget">Set up budget <span aria-hidden="true">↗</span></a>
+          </div>
+          <a class="overview-budget-summary" id="overview-budget-summary" href="#budget" hidden>
+            <div class="overview-budget-values">
+              <div><span>Spent</span><strong id="overview-spent">£0</strong></div>
+              <div><span>Budget limit</span><strong id="overview-limit">£0</strong></div>
+              <div class="overview-budget-remaining"><span id="overview-remaining-label">Remaining</span><strong id="overview-remaining">£0</strong></div>
+            </div>
+            <div class="budget-progress-track" id="overview-progress" role="progressbar" aria-label="Budget spent" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="overview-progress-fill"></span></div>
+            <div class="overview-budget-footer">
+              <span id="overview-category-summary">No expenses recorded this period.</span>
+              <span class="overview-budget-link">View Budget <span aria-hidden="true">↗</span></span>
+            </div>
+          </a>
+          <p class="budget-inline-message" id="overview-budget-message" role="status" aria-live="polite"></p>
         </section>
 
         <section class="section-block" id="overview-connections">
@@ -300,26 +339,148 @@
             <p>Bring your notes and deadlines together to make a plan that feels manageable.</p>
           </div>
           <div class="assistant-form">
-            <label for="provider-select">Provider</label>
+            <label for="provider-select">AI model</label>
             <select id="provider-select" aria-label="Choose an AI provider">
-              <option>OpenAI</option>
-              <option>Anthropic</option>
-              <option>Local model</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="local">Site model</option>
             </select>
-            <span class="selection-note">0 records selected</span>
+            <span class="selection-note" id="assistant-provider-status">Connect an AI API key in Connections.</span>
           </div>
+          <div class="assistant-conversation" id="assistant-conversation" role="log" aria-live="polite" aria-relevant="additions"></div>
           <form id="assistant-form">
             <label class="visually-hidden" for="assistant-prompt">Ask your study assistant</label>
-            <textarea id="assistant-prompt" rows="2" placeholder="What should I prioritise this week?"></textarea>
+            <textarea id="assistant-prompt" rows="2" maxlength="4000" placeholder="What should I prioritise this week?"></textarea>
             <div class="assistant-form-bottom">
-              <p class="privacy-disclaimer"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="2"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>Assistant preview only · No account or provider is connected</p>
-              <button class="button button-dark" type="submit">Preview question <span aria-hidden="true">↗</span></button>
+              <p class="privacy-disclaimer"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="2"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>Your prompt and saved workspace summaries go to the selected model.</p>
+              <button class="button button-dark" id="assistant-submit" type="submit">Send <span aria-hidden="true">↗</span></button>
             </div>
             <p class="assistant-feedback" id="assistant-feedback" role="status" hidden></p>
           </form>
         </section>
 
         <footer class="page-footer"><span>University Hub</span><span>A little more space to think.</span></footer>
+        </section>
+
+        <section class="view-page detail-page budget-page" id="budget-page" data-view="budget" hidden>
+          <header class="page-header">
+            <div><p class="eyebrow">Your money, your plan</p><h1>Budget<span class="heading-period">.</span></h1><p class="page-description">Plan spending, record expenses, and keep upcoming costs separate from money already spent.</p></div>
+            <button class="button button-dark" id="budget-add-expense" type="button">Add expense <span aria-hidden="true">+</span></button>
+          </header>
+
+          <section class="detail-panel budget-period-panel">
+            <div class="budget-period-heading">
+              <div>
+                <p class="eyebrow">Review a period</p>
+                <h2 id="budget-period-label">This week</h2>
+                <p class="budget-date-range" id="budget-period-dates"></p>
+              </div>
+              <div class="budget-period-controls">
+                <label class="visually-hidden" for="budget-period-type">Budget period</label>
+                <select id="budget-period-type">
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                <button class="button button-outline" id="budget-period-previous" type="button" aria-label="Previous period">←</button>
+                <button class="button button-outline" id="budget-period-current" type="button">Current</button>
+                <button class="button button-outline" id="budget-period-next" type="button" aria-label="Next period">→</button>
+              </div>
+            </div>
+            <p class="budget-page-message" id="budget-page-message" role="status" aria-live="polite"></p>
+          </section>
+
+          <section class="budget-totals-grid" aria-label="Budget totals">
+            <article class="budget-total-card budget-total-highlight"><span>Actual spending</span><strong id="budget-spent-total">£0.00</strong><small id="budget-spent-caption">Recorded expenses only</small></article>
+            <article class="budget-total-card"><span id="budget-remaining-label">Remaining</span><strong id="budget-remaining-total">£0.00</strong><small id="budget-limit-caption">Set a period limit below</small></article>
+            <article class="budget-total-card"><span>Upcoming committed</span><strong id="budget-committed-total">£0.00</strong><small>Unpaid recurring costs due in this period</small></article>
+            <article class="budget-total-card"><span>Safe to spend</span><strong id="budget-safe-total">Set a budget</strong><small id="budget-safe-caption">Limit less actual spending and commitments</small></article>
+          </section>
+          <section class="budget-summary-panel">
+            <div class="budget-summary-line"><span id="budget-summary-copy">Set a budget to begin planning.</span><span id="budget-progress-percent">0%</span></div>
+            <div class="budget-progress-track" id="budget-progress" role="progressbar" aria-label="Budget spent" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="budget-progress-fill"></span></div>
+          </section>
+
+          <section class="detail-panel budget-limit-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Plan the period</p><h2 id="budget-limit-heading">Set your weekly limit</h2></div><span class="budget-preview-badge" id="budget-limit-preview" hidden>Preview — not saved</span></div>
+            <form id="budget-limit-form" class="budget-slider-form">
+              <label class="budget-slider-label" for="budget-limit-slider">Overall budget limit</label>
+              <div class="budget-slider-row">
+                <input id="budget-limit-slider" type="range" min="0" max="100000000" step="1" value="0" aria-label="Overall budget limit slider" />
+                <label class="budget-money-field"><span class="visually-hidden">Overall budget limit in pounds</span><span>£</span><input id="budget-limit-input" type="number" min="0" max="1000000" step="0.01" value="0.00" inputmode="decimal" /></label>
+                <button class="button button-dark" id="budget-limit-save" type="submit">Save limit</button>
+              </div>
+              <p class="budget-help">You can review earlier weeks or months with the period controls above. Amounts are saved to the selected period.</p>
+            </form>
+          </section>
+
+          <div class="budget-two-column">
+            <section class="detail-panel">
+              <div class="detail-panel-heading"><div><p class="eyebrow">Plan by category</p><h2>Category limits</h2></div><span class="budget-preview-badge" id="budget-category-preview" hidden>Preview — not saved</span></div>
+              <div id="budget-category-limits" class="budget-category-list"></div>
+              <div class="budget-allocation-summary"><span id="budget-allocation-copy">No category limits allocated.</span><strong id="budget-unallocated">Unallocated: £0.00</strong></div>
+              <button class="button button-outline" id="budget-category-save" type="button" disabled>Save category limits</button>
+              <p class="budget-help">Allocations are a guide within the overall limit. They cannot add up to more than your budget.</p>
+            </section>
+            <section class="detail-panel">
+              <div class="detail-panel-heading"><div><p class="eyebrow">Where it goes</p><h2>Spending by category</h2></div></div>
+              <div id="budget-category-breakdown" class="budget-category-breakdown"></div>
+              <p class="budget-empty-note" id="budget-no-expenses" hidden>No expenses recorded for this period yet. Upcoming costs are shown separately.</p>
+            </section>
+          </div>
+
+          <section class="detail-panel budget-events-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">One-off plans</p><h2>Events &amp; nights out</h2></div><span class="section-note">Each expense counts once in your period total</span></div>
+            <form id="budget-event-form" class="budget-entry-form">
+              <input id="budget-event-id" type="hidden" />
+              <label class="auth-field"><span>Event name</span><input id="budget-event-name" maxlength="100" placeholder="e.g. Friday night" required /></label>
+              <label class="auth-field"><span>Date</span><input id="budget-event-date" type="date" required /></label>
+              <label class="auth-field budget-wide-field"><span>Optional note</span><input id="budget-event-note" maxlength="500" placeholder="What are you planning?" /></label>
+              <label class="budget-slider-label budget-wide-field" for="budget-event-limit-slider">Event spending limit</label>
+              <div class="budget-slider-row budget-wide-field">
+                <input id="budget-event-limit-slider" type="range" min="0" max="100000000" step="1" value="0" aria-label="Event spending limit slider" />
+                <label class="budget-money-field"><span class="visually-hidden">Event spending limit in pounds</span><span>£</span><input id="budget-event-limit" type="number" min="0.01" max="1000000" step="0.01" value="50.00" inputmode="decimal" required /></label>
+              </div>
+              <span class="budget-preview-badge budget-wide-field" id="budget-event-limit-preview" hidden>Preview — not saved</span>
+              <div class="budget-entry-actions budget-wide-field"><button class="button button-dark" id="budget-event-save" type="submit">Add event</button><button class="button button-outline" id="budget-event-cancel" type="button" hidden>Cancel edit</button></div>
+            </form>
+            <div id="budget-event-list" class="budget-event-list"></div>
+            <p class="budget-empty-note" id="budget-no-events" hidden>No events planned for this period. Add one to set a one-off limit and preview spending.</p>
+          </section>
+
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Regular commitments</p><h2>Recurring costs</h2></div><span class="section-note">Upcoming amounts are not counted as spent</span></div>
+            <form id="budget-recurring-form" class="budget-entry-form">
+              <input id="budget-recurring-id" type="hidden" />
+              <label class="auth-field"><span>Cost name</span><input id="budget-recurring-title" maxlength="120" placeholder="e.g. Rent or travel pass" required /></label>
+              <label class="auth-field"><span>Amount</span><span class="budget-money-field"><span>£</span><input id="budget-recurring-amount" type="number" min="0.01" max="1000000" step="0.01" inputmode="decimal" required /></span></label>
+              <label class="auth-field"><span>Category</span><select id="budget-recurring-category"></select></label>
+              <label class="auth-field"><span>Repeats</span><select id="budget-recurring-interval"><option value="weekly">Weekly</option><option value="monthly" selected>Monthly</option><option value="yearly">Yearly</option></select></label>
+              <label class="auth-field"><span>Next due date</span><input id="budget-recurring-due" type="date" required /></label>
+              <label class="auth-field"><span>Optional note</span><input id="budget-recurring-note" maxlength="500" placeholder="e.g. Energy bill" /></label>
+              <div class="budget-entry-actions budget-wide-field"><button class="button button-dark" type="submit">Add recurring cost</button></div>
+            </form>
+            <div id="budget-recurring-list" class="budget-recurring-list"></div>
+            <p class="budget-empty-note" id="budget-no-recurring" hidden>No recurring costs saved. Add rent, bills, subscriptions, or travel passes to include them in your safe-to-spend estimate.</p>
+          </section>
+
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">What has actually been paid</p><h2>Recent expenses</h2></div><span class="section-note" id="budget-expense-count">0 expenses</span></div>
+            <div id="budget-expense-list" class="budget-expense-list"></div>
+            <p class="budget-empty-note" id="budget-no-expense-list" hidden>No expenses recorded for this period.</p>
+          </section>
+
+          <section class="detail-panel budget-reminder-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Optional email reminders</p><h2>Spending thresholds</h2></div></div>
+            <label class="budget-reminder-toggle"><input id="budget-reminders-enabled" type="checkbox" /><span>Email me when spending reaches a selected threshold.</span></label>
+            <div class="budget-threshold-options">
+              <label><input id="budget-reminder-80" type="checkbox" checked /><span>80% of the budget</span></label>
+              <label><input id="budget-reminder-100" type="checkbox" checked /><span>100% or more of the budget</span></label>
+            </div>
+            <p class="budget-help" id="budget-reminder-address"></p>
+            <button class="button button-outline" id="budget-reminder-save" type="button">Save email reminder settings</button>
+            <p class="budget-page-message" id="budget-reminder-message" role="status" aria-live="polite"></p>
+          </section>
+          <footer class="page-footer"><span>University Hub</span><span>Small choices, clearer spending.</span></footer>
         </section>
 
         <section class="view-page detail-page" id="deadlines-page" data-view="deadlines" hidden>
@@ -488,7 +649,24 @@
             <div class="detail-panel-heading"><div><p class="eyebrow">Connected services</p><h2>Account status</h2></div><span class="section-note" id="connections-page-count">0 of 7 linked</span></div>
             <div class="connection-detail-list" id="connections-detail-list"></div>
           </section>
-          <p class="setup-note">Account authorization does not copy files or sync messages yet. Your administrator must configure provider apps and deploy the secure OAuth functions before connect buttons can work.</p>
+          <section class="detail-panel" id="ai-provider-connections">
+            <div class="detail-panel-heading"><div><p class="eyebrow">AI assistants</p><h2>Connect ChatGPT or Claude</h2></div></div>
+            <p class="setup-note">Use an OpenAI or Anthropic API key, not your ChatGPT or Claude website password. API usage is billed separately from those subscriptions. Your key is encrypted on the server and never shown again.</p>
+            <div class="provider-connect-grid">
+              <article class="provider-connect-card">
+                <div><h3>OpenAI / ChatGPT</h3><p>Connect an OpenAI API key for the study assistant and search answers.</p><span class="provider-connect-status" id="openai-provider-status">Not connected</span></div>
+                <label class="auth-field" for="openai-api-key"><span>OpenAI API key</span><input id="openai-api-key" type="password" autocomplete="new-password" spellcheck="false" placeholder="Paste an API key to connect" /></label>
+                <div class="provider-connect-actions"><button class="button button-dark" id="openai-connect-button" type="button">Connect OpenAI</button><button class="button button-outline" id="openai-disconnect-button" type="button" hidden>Disconnect</button></div>
+              </article>
+              <article class="provider-connect-card">
+                <div><h3>Anthropic / Claude</h3><p>Connect an Anthropic API key for the study assistant and search answers.</p><span class="provider-connect-status" id="anthropic-provider-status">Not connected</span></div>
+                <label class="auth-field" for="anthropic-api-key"><span>Anthropic API key</span><input id="anthropic-api-key" type="password" autocomplete="new-password" spellcheck="false" placeholder="Paste an API key to connect" /></label>
+                <div class="provider-connect-actions"><button class="button button-dark" id="anthropic-connect-button" type="button">Connect Anthropic</button><button class="button button-outline" id="anthropic-disconnect-button" type="button" hidden>Disconnect</button></div>
+              </article>
+            </div>
+            <p class="setup-note" id="ai-provider-feedback" role="status" aria-live="polite"></p>
+          </section>
+          <p class="setup-note">University-service buttons require institution-approved OAuth apps and deployed OAuth functions. Connecting an AI model uses its API key above and does not sign in to a consumer chat website.</p>
         </section>
 
         <section class="view-page detail-page" id="profile-page" data-view="profile" hidden>
@@ -594,5 +772,18 @@
         </section>
       </main>
     </div>
+    <dialog class="expense-dialog" id="budget-expense-dialog" aria-labelledby="budget-expense-heading">
+      <form id="budget-expense-form">
+        <div class="expense-dialog-header"><div><p class="eyebrow">Track a purchase</p><h2 id="budget-expense-heading">Add expense</h2></div><button class="dialog-close" id="budget-expense-close" type="button" aria-label="Close expense form">×</button></div>
+        <input id="budget-expense-id" type="hidden" />
+        <label class="auth-field"><span>Amount</span><span class="budget-money-field"><span>£</span><input id="budget-expense-amount" type="number" min="0.01" max="1000000" step="0.01" inputmode="decimal" required /></span></label>
+        <label class="auth-field"><span>Date paid</span><input id="budget-expense-date" type="date" required /></label>
+        <label class="auth-field"><span>Category</span><select id="budget-expense-category" required></select></label>
+        <label class="auth-field"><span>Event (optional)</span><select id="budget-expense-event"><option value="">No event</option></select></label>
+        <label class="auth-field"><span>Note (optional)</span><input id="budget-expense-note" maxlength="500" placeholder="Add a short note" /></label>
+        <p class="budget-page-message" id="budget-expense-message" role="status" aria-live="polite"></p>
+        <div class="budget-entry-actions"><button class="button button-dark" id="budget-expense-save" type="submit">Save expense</button><button class="button button-outline" id="budget-expense-cancel" type="button">Cancel</button></div>
+      </form>
+    </dialog>
   </body>
 </html>

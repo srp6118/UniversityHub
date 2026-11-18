@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from "./src/supabase.js";
+import { initializeBudget } from "./src/budget.js";
 
 const authScreen = document.querySelector("#auth-screen");
 const workspaceShell = document.querySelector("#workspace-shell");
@@ -67,6 +68,10 @@ const passwordHint = document.querySelector("#password-hint");
 const signOutButton = document.querySelector("#sign-out-button");
 const accountEmail = document.querySelector("#account-email");
 const searchInput = document.querySelector("#workspace-search");
+const searchForm = document.querySelector("#workspace-search-form");
+const searchSubmit = document.querySelector("#workspace-search-submit");
+const searchResultsPanel = document.querySelector("#workspace-search-results");
+const searchConversation = document.querySelector("#workspace-search-conversation");
 const sourceCards = [...document.querySelectorAll(".source-card")];
 const emptySearch = document.querySelector("#search-empty");
 const refreshButton = document.querySelector("#refresh-button");
@@ -74,6 +79,25 @@ const refreshMeta = document.querySelector("#refresh-meta");
 const assistantForm = document.querySelector("#assistant-form");
 const assistantPrompt = document.querySelector("#assistant-prompt");
 const assistantFeedback = document.querySelector("#assistant-feedback");
+const assistantSubmit = document.querySelector("#assistant-submit");
+const assistantConversation = document.querySelector("#assistant-conversation");
+const assistantProviderSelect = document.querySelector("#provider-select");
+const assistantProviderStatus = document.querySelector("#assistant-provider-status");
+const aiProviderFeedback = document.querySelector("#ai-provider-feedback");
+const aiProviderControls = {
+  openai: {
+    input: document.querySelector("#openai-api-key"),
+    connect: document.querySelector("#openai-connect-button"),
+    disconnect: document.querySelector("#openai-disconnect-button"),
+    status: document.querySelector("#openai-provider-status"),
+  },
+  anthropic: {
+    input: document.querySelector("#anthropic-api-key"),
+    connect: document.querySelector("#anthropic-connect-button"),
+    disconnect: document.querySelector("#anthropic-disconnect-button"),
+    status: document.querySelector("#anthropic-provider-status"),
+  },
+};
 const viewPages = [...document.querySelectorAll(".view-page")];
 const navLinks = [...document.querySelectorAll(".primary-nav .nav-link")];
 const moderatorNavLink = document.querySelector(".moderator-nav-link");
@@ -127,6 +151,7 @@ const platformUrls = {
 };
 const pageTitles = {
   overview: "Your day, in focus",
+  budget: "Budget",
   deadlines: "Deadlines",
   calendar: "Calendar",
   files: "Files",
@@ -143,6 +168,7 @@ let authMethod = "email";
 let phoneCodePending = false;
 let phoneLinkPending = false;
 let currentUserId = null;
+let currentUserEmail = "";
 let isModerator = false;
 let moderatorUsers = [];
 let moderatorPage = 1;
@@ -158,11 +184,19 @@ let onboardingVersion = 0;
 let dashboardSources = [];
 let pendingDashboardSources = [];
 let pendingMainPlatform = null;
+let assistantMessages = [];
+let assistantProviderConnections = { openai: false, anthropic: false, local: false };
 let recoveryFlowPending =
   new URLSearchParams(window.location.search).get("auth") === "recovery" ||
   window.location.hash.includes("type=recovery");
+const budget = initializeBudget({
+  supabase,
+  getCurrentUserId: () => currentUserId,
+  getCurrentUserEmail: () => currentUserEmail,
+});
 
 function resetPrivateWorkspace() {
+  budget.reset();
   document.querySelector("#deadline-count").textContent = "0";
   document.querySelector("#file-count").textContent = "0";
   document.querySelector("#connected-count").textContent = "0";
@@ -285,9 +319,29 @@ function setAuthMode(mode) {
   }
 }
 
+function resetAssistantState(providerStatus) {
+  assistantMessages = [];
+  assistantConversation.replaceChildren();
+  assistantFeedback.hidden = true;
+  assistantFeedback.textContent = "";
+  assistantProviderConnections = { openai: false, anthropic: false, local: false };
+  assistantProviderStatus.textContent = providerStatus;
+  aiProviderFeedback.textContent = "";
+  for (const controls of Object.values(aiProviderControls)) {
+    controls.input.value = "";
+    controls.connect.disabled = false;
+    controls.disconnect.disabled = false;
+    controls.status.textContent = "Not connected";
+    controls.status.classList.remove("is-connected");
+    controls.disconnect.hidden = true;
+  }
+  assistantSubmit.disabled = false;
+}
+
 function showSignedOut(message = "") {
   stopPresenceTracking();
   currentUserId = null;
+  currentUserEmail = "";
   currentUserName = "";
   mainPlatform = null;
   savedPlatformUrls = {};
@@ -295,6 +349,11 @@ function showSignedOut(message = "") {
   onboardingVersion = 0;
   dashboardSources = [];
   pendingDashboardSources = [];
+  resetAssistantState("Sign in to connect an AI provider.");
+  searchInput.value = "";
+  searchSubmit.disabled = false;
+  searchConversation.replaceChildren();
+  searchResultsPanel.hidden = true;
   onboardingScreen.hidden = true;
   mainPlatformFocus.hidden = true;
   additionalPlatformShortcuts.hidden = true;
@@ -317,8 +376,12 @@ function showSignedOut(message = "") {
 
 async function showSignedIn(user) {
   const isNewSession = currentUserId !== user.id;
-  if (isNewSession) resetPrivateWorkspace();
+  if (isNewSession) {
+    resetPrivateWorkspace();
+    resetAssistantState("Loading your AI provider settings…");
+  }
   currentUserId = user.id;
+  currentUserEmail = user.email || "";
   if (isNewSession) startPresenceTracking(user.id);
   currentUserName = user.user_metadata?.full_name?.trim() || user.email?.split("@")[0] || "there";
   profileFullNameInput.value = user.user_metadata?.full_name?.trim() || "";
@@ -342,7 +405,11 @@ async function showSignedIn(user) {
     await Promise.all([
       loadPrivateWorkspaceData(user.id),
       loadUserPreferences(user.id),
+      budget.load(user.id),
     ]);
+    assistantMessages = [];
+    assistantConversation.replaceChildren();
+    void loadAssistantProviderStatus(user.id);
   }
 }
 
@@ -563,20 +630,159 @@ function openPlatform(platform) {
 }
 
 function filterSources() {
-  const query = searchInput.value.trim().toLowerCase();
   let visibleCount = 0;
 
   for (const card of sourceCards) {
-    const matches = dashboardSources.includes(card.dataset.provider) &&
-      (!query || `${card.textContent} ${card.dataset.search}`.toLowerCase().includes(query));
+    const matches = dashboardSources.includes(card.dataset.provider);
     card.hidden = !matches;
     if (matches) visibleCount += 1;
   }
 
-  emptySearch.textContent = query
-    ? "No selected sources match that search. Try another keyword."
-    : "No service cards selected yet. Add them from Connections whenever you're ready.";
+  emptySearch.textContent = "No service cards selected yet. Add them from Connections whenever you're ready.";
   emptySearch.hidden = visibleCount > 0;
+}
+
+function addSearchTurn(query) {
+  const turn = document.createElement("article");
+  turn.className = "search-turn";
+  const prompt = document.createElement("p");
+  prompt.className = "search-user-message";
+  prompt.textContent = query;
+  const response = document.createElement("div");
+  response.className = "search-assistant-response";
+  const status = document.createElement("p");
+  status.className = "search-meta";
+  status.textContent = "Searching your connected services…";
+  response.append(status);
+  turn.append(prompt, response);
+  searchConversation.append(turn);
+  while (searchConversation.children.length > 5) searchConversation.firstElementChild.remove();
+  searchResultsPanel.hidden = false;
+  return response;
+}
+
+function renderSearchResultList(container, results) {
+  const list = document.createElement("div");
+  list.className = "search-result-list";
+  for (const result of results) {
+    if (!result || typeof result.title !== "string" || typeof result.provider !== "string") continue;
+    let url;
+    try {
+      url = new URL(result.url);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== "https:") continue;
+
+    const card = document.createElement("article");
+    card.className = "search-result-card";
+    const source = document.createElement("p");
+    source.className = "search-result-source";
+    source.textContent = result.provider;
+    const link = document.createElement("a");
+    link.href = url.toString();
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = result.title;
+    card.append(source, link);
+    if (typeof result.description === "string" && result.description) {
+      const description = document.createElement("p");
+      description.className = "search-result-description";
+      description.textContent = result.description;
+      card.append(description);
+    }
+    if (typeof result.modifiedAt === "string") {
+      const date = new Date(result.modifiedAt);
+      if (!Number.isNaN(date.getTime())) {
+        const time = document.createElement("time");
+        time.className = "search-result-date";
+        time.dateTime = date.toISOString();
+        time.textContent = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+        card.append(time);
+      }
+    }
+    list.append(card);
+  }
+  if (list.childElementCount) container.append(list);
+}
+
+function renderWorkspaceSearchResponse(container, data) {
+  const answer = document.createElement("p");
+  answer.className = "search-answer";
+  answer.textContent = typeof data.answer === "string"
+    ? data.answer
+    : data.results.length
+      ? `I found ${data.results.length} matching item${data.results.length === 1 ? "" : "s"}. Select a result to open it.`
+      : Array.isArray(data.providerErrors) && data.providerErrors.length
+        ? "Some connected services couldn't be searched. Check the messages below; any results that were found are still shown."
+      : data.searched.length
+        ? "I couldn't find a matching file or message in the connected services."
+        : "Connect Google, Microsoft, or Canvas in Connections to search those accounts. Minerva, Blackboard, and Teams are currently portal shortcuts and cannot be searched.";
+  container.replaceChildren(answer);
+
+  if (data.results.length) renderSearchResultList(container, data.results);
+  if (!data.aiConfigured) {
+    const modelNote = document.createElement("p");
+    modelNote.className = "search-meta";
+    modelNote.textContent = "File search is available. Connect an AI provider in Connections to get a summary of the matches.";
+    container.append(modelNote);
+  } else {
+    const modelNote = document.createElement("p");
+    modelNote.className = "search-meta";
+    modelNote.textContent = "Your selected AI provider received the query and matching result titles and dates only, not file contents.";
+    container.append(modelNote);
+  }
+  if (Array.isArray(data.searched) && data.searched.length) {
+    const searched = document.createElement("p");
+    searched.className = "search-meta";
+    searched.textContent = `Searched: ${[...new Set(data.searched)].join(" · ")}`;
+    container.append(searched);
+  }
+  if (Array.isArray(data.providerErrors)) {
+    for (const message of data.providerErrors) {
+      if (typeof message !== "string") continue;
+      const error = document.createElement("p");
+      error.className = "search-error";
+      error.textContent = message;
+      container.append(error);
+    }
+  }
+  if (typeof data.answerError === "string" && data.answerError) {
+    const error = document.createElement("p");
+    error.className = "search-error";
+    error.textContent = `Search worked, but the AI summary failed: ${data.answerError}`;
+    container.append(error);
+  }
+}
+
+async function submitWorkspaceSearch(query) {
+  const response = addSearchTurn(query);
+  const userId = currentUserId;
+  if (!supabase || !isSupabaseConfigured || !userId) {
+    response.firstElementChild.textContent = "Sign in to search your connected services.";
+    return;
+  }
+
+  searchSubmit.disabled = true;
+  try {
+    const { data, error } = await supabase.functions.invoke("workspace-search", {
+      body: { query, assistantProvider: assistantProviderSelect.value },
+    });
+    if (currentUserId !== userId) return;
+    if (error) throw error;
+    if (!data || !Array.isArray(data.results) || !Array.isArray(data.searched)) {
+      throw new Error("The search service returned an unexpected response.");
+    }
+    renderWorkspaceSearchResponse(response, data);
+  } catch (error) {
+    if (currentUserId !== userId) return;
+    const message = document.createElement("p");
+    message.className = "search-error";
+    message.textContent = `Couldn't search your workspace: ${error.message}`;
+    response.replaceChildren(message);
+  } finally {
+    if (currentUserId === userId) searchSubmit.disabled = false;
+  }
 }
 
 function showView(viewName) {
@@ -822,6 +1028,129 @@ function showConnectionFeedback(message, kind = "info") {
   connectionFeedback.dataset.kind = kind;
 }
 
+function updateAssistantProviderStatus() {
+  const provider = assistantProviderSelect.value;
+  if (provider === "local") {
+    assistantProviderStatus.textContent = assistantProviderConnections.local
+      ? "Site model is ready."
+      : "The site administrator has not configured a model.";
+    return;
+  }
+  const label = provider === "openai" ? "OpenAI" : "Anthropic";
+  assistantProviderStatus.textContent = assistantProviderConnections[provider]
+    ? `${label} API connected.`
+    : `${label} API not connected. Add its API key in Connections.`;
+}
+
+async function loadAssistantProviderStatus(userId = currentUserId) {
+  if (!supabase || !isSupabaseConfigured || !userId) return;
+  try {
+    const { data, error } = await supabase.functions.invoke("assistant-provider", {
+      body: { action: "status", provider: "openai" },
+    });
+    if (error) throw error;
+    if (currentUserId !== userId || !data?.providers) return;
+    assistantProviderConnections = {
+      openai: Boolean(data.providers.openai),
+      anthropic: Boolean(data.providers.anthropic),
+      local: Boolean(data.localConfigured),
+    };
+    for (const provider of ["openai", "anthropic"]) {
+      const controls = aiProviderControls[provider];
+      const connected = assistantProviderConnections[provider];
+      controls.status.textContent = connected ? "Connected" : "Not connected";
+      controls.status.classList.toggle("is-connected", connected);
+      controls.disconnect.hidden = !connected;
+    }
+    if (
+      assistantProviderSelect.value === "openai" &&
+      !assistantProviderConnections.openai
+    ) {
+      assistantProviderSelect.value = assistantProviderConnections.anthropic
+        ? "anthropic"
+        : assistantProviderConnections.local
+          ? "local"
+          : "openai";
+    }
+    updateAssistantProviderStatus();
+  } catch (error) {
+    if (currentUserId === userId) {
+      aiProviderFeedback.textContent =
+        `Couldn't load AI provider settings: ${error.message || "Deploy the assistant functions and migration first."}`;
+    }
+  }
+}
+
+async function connectAssistantProvider(provider) {
+  if (!supabase || !currentUserId) return;
+  const userId = currentUserId;
+  const controls = aiProviderControls[provider];
+  const apiKey = controls.input.value.trim();
+  if (!apiKey) {
+    controls.input.focus();
+    aiProviderFeedback.textContent = `Enter your ${provider === "openai" ? "OpenAI" : "Anthropic"} API key.`;
+    return;
+  }
+
+  controls.connect.disabled = true;
+  aiProviderFeedback.textContent = `Verifying ${provider === "openai" ? "OpenAI" : "Anthropic"} API key…`;
+  try {
+    const { data, error } = await supabase.functions.invoke("assistant-provider", {
+      body: { action: "connect", provider, apiKey },
+    });
+    if (currentUserId !== userId) return;
+    if (error) throw error;
+    controls.input.value = "";
+    assistantProviderConnections[provider] = true;
+    controls.status.textContent = `Connected · ${data.model}`;
+    controls.status.classList.add("is-connected");
+    controls.disconnect.hidden = false;
+    assistantProviderSelect.value = provider;
+    updateAssistantProviderStatus();
+    aiProviderFeedback.textContent = `${provider === "openai" ? "OpenAI" : "Anthropic"} connected. API requests may incur usage charges.`;
+  } catch (error) {
+    if (currentUserId !== userId) return;
+    aiProviderFeedback.textContent =
+      `Couldn't connect ${provider === "openai" ? "OpenAI" : "Anthropic"}: ${error.message || "Check the API key and try again."}`;
+  } finally {
+    if (currentUserId === userId) controls.connect.disabled = false;
+  }
+}
+
+async function disconnectAssistantProvider(provider) {
+  if (!supabase || !currentUserId) return;
+  const userId = currentUserId;
+  const controls = aiProviderControls[provider];
+  controls.disconnect.disabled = true;
+  aiProviderFeedback.textContent = `Disconnecting ${provider === "openai" ? "OpenAI" : "Anthropic"}…`;
+  try {
+    const { error } = await supabase.functions.invoke("assistant-provider", {
+      body: { action: "disconnect", provider },
+    });
+    if (currentUserId !== userId) return;
+    if (error) throw error;
+    assistantProviderConnections[provider] = false;
+    controls.status.textContent = "Not connected";
+    controls.status.classList.remove("is-connected");
+    controls.disconnect.hidden = true;
+    if (assistantProviderSelect.value === provider) {
+      const alternate = provider === "openai" ? "anthropic" : "openai";
+      assistantProviderSelect.value = assistantProviderConnections[alternate]
+        ? alternate
+        : assistantProviderConnections.local
+          ? "local"
+          : provider;
+    }
+    updateAssistantProviderStatus();
+    aiProviderFeedback.textContent = `${provider === "openai" ? "OpenAI" : "Anthropic"} disconnected.`;
+  } catch (error) {
+    if (currentUserId !== userId) return;
+    aiProviderFeedback.textContent = `Couldn't disconnect the provider: ${error.message || "Try again."}`;
+  } finally {
+    if (currentUserId === userId) controls.disconnect.disabled = false;
+  }
+}
+
 function handleOAuthReturn() {
   const params = new URLSearchParams(window.location.search);
   const result = params.get("connection");
@@ -892,7 +1221,7 @@ async function disconnectProvider(provider, button) {
     const { error } = await supabase.functions.invoke("oauth-disconnect", { body: { provider } });
     if (error) throw error;
     showConnectionFeedback("University Hub removed the stored authorization. Revoke its provider grant in your account security settings to fully invalidate access.", "success");
-    await loadPrivateWorkspaceData(currentUserId);
+    await Promise.all([loadPrivateWorkspaceData(currentUserId), budget.refresh()]);
   } catch (error) {
     showConnectionFeedback(error.message || "Could not disconnect this account. Try again.", "error");
   } finally {
@@ -1485,6 +1814,17 @@ document.querySelectorAll("[data-disconnect-provider]").forEach((button) => {
   });
 });
 
+for (const provider of ["openai", "anthropic"]) {
+  aiProviderControls[provider].connect.addEventListener("click", () => {
+    void connectAssistantProvider(provider);
+  });
+  aiProviderControls[provider].disconnect.addEventListener("click", () => {
+    void disconnectAssistantProvider(provider);
+  });
+}
+
+assistantProviderSelect.addEventListener("change", updateAssistantProviderStatus);
+
 platformChoiceForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const selected = platformChoiceForm.querySelector('input[name="main-platform"]:checked');
@@ -1751,7 +2091,15 @@ signOutButton.addEventListener("click", async () => {
   }
 });
 
-searchInput.addEventListener("input", filterSources);
+searchForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const query = searchInput.value.trim();
+  if (!query) {
+    searchInput.focus();
+    return;
+  }
+  void submitWorkspaceSearch(query);
+});
 
 document.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -1761,7 +2109,8 @@ document.addEventListener("keydown", (event) => {
 
   if (event.key === "Escape" && document.activeElement === searchInput) {
     searchInput.value = "";
-    filterSources();
+    searchConversation.replaceChildren();
+    searchResultsPanel.hidden = true;
     searchInput.blur();
   }
 });
@@ -1772,7 +2121,7 @@ refreshButton.addEventListener("click", async () => {
   refreshButton.disabled = true;
   refreshMeta.textContent = "Refreshing your private workspace…";
   try {
-    await loadPrivateWorkspaceData(currentUserId);
+    await Promise.all([loadPrivateWorkspaceData(currentUserId), budget.refresh()]);
     refreshMeta.textContent = `View refreshed at ${new Intl.DateTimeFormat(undefined, {
       hour: "numeric",
       minute: "2-digit",
@@ -1783,14 +2132,86 @@ refreshButton.addEventListener("click", async () => {
   }
 });
 
-assistantForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const question = assistantPrompt.value.trim();
+function appendAssistantMessage(role, content) {
+  const message = document.createElement("article");
+  message.className = `assistant-message is-${role}`;
+  const label = document.createElement("span");
+  label.className = "assistant-message-label";
+  label.textContent = role === "user" ? "You" : "Study assistant";
+  const text = document.createElement("p");
+  text.textContent = content;
+  message.append(label, text);
+  assistantConversation.append(message);
+  while (assistantConversation.children.length > 12) {
+    assistantConversation.firstElementChild.remove();
+  }
+  assistantConversation.scrollTop = assistantConversation.scrollHeight;
+}
 
+function constrainAssistantHistory(messages) {
+  const recent = [];
+  let totalLength = 0;
+  for (const message of messages.slice(-12).reverse()) {
+    if (totalLength + message.content.length > 16_000) break;
+    recent.unshift(message);
+    totalLength += message.content.length;
+  }
+  return recent;
+}
+
+assistantForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!supabase || !currentUserId || assistantSubmit.disabled) return;
+  const question = assistantPrompt.value.trim();
+  if (!question) {
+    assistantFeedback.hidden = false;
+    assistantFeedback.textContent = "Add a question before sending.";
+    assistantPrompt.focus();
+    return;
+  }
+  if (question.length > 4000) {
+    assistantFeedback.hidden = false;
+    assistantFeedback.textContent = "Keep your question to 4,000 characters or fewer.";
+    assistantPrompt.focus();
+    return;
+  }
+
+  const userId = currentUserId;
+  assistantMessages = constrainAssistantHistory([
+    ...assistantMessages,
+    { role: "user", content: question },
+  ]);
+  appendAssistantMessage("user", question);
+  assistantPrompt.value = "";
   assistantFeedback.hidden = false;
-  assistantFeedback.textContent = question
-    ? "This is a visual preview only. Connect an AI provider and choose workspace records to get a response."
-    : "Add a question to preview how your study assistant will work.";
+  assistantFeedback.textContent = "Thinking…";
+  assistantSubmit.disabled = true;
+  try {
+    const { data, error } = await supabase.functions.invoke("assistant-chat", {
+      body: {
+        provider: assistantProviderSelect.value,
+        messages: assistantMessages,
+      },
+    });
+    if (currentUserId !== userId) return;
+    if (error) throw error;
+    if (typeof data?.reply !== "string" || !data.reply.trim()) {
+      throw new Error("The assistant returned an empty response.");
+    }
+    assistantMessages = constrainAssistantHistory([
+      ...assistantMessages,
+      { role: "assistant", content: data.reply },
+    ]);
+    appendAssistantMessage("assistant", data.reply);
+    assistantFeedback.hidden = true;
+    assistantFeedback.textContent = "";
+  } catch (error) {
+    if (currentUserId !== userId) return;
+    assistantFeedback.textContent =
+      `The assistant couldn't respond: ${error.message || "Check the provider connection and try again."}`;
+  } finally {
+    if (currentUserId === userId) assistantSubmit.disabled = false;
+  }
 });
 
 announcementForm.addEventListener("submit", async (event) => {

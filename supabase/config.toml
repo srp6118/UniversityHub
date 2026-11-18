@@ -14,6 +14,15 @@ verify_jwt = false
 [functions.oauth-disconnect]
 verify_jwt = true
 
+[functions.workspace-search]
+verify_jwt = true
+
+[functions.assistant-provider]
+verify_jwt = true
+
+[functions.assistant-chat]
+verify_jwt = true
+
 [functions.record-presence]
 verify_jwt = false
 
@@ -25,3 +34,6 @@ verify_jwt = false
 
 [functions.moderator-send-password-reset]
 verify_jwt = false
+
+[functions.budget-email-reminders]
+verify_jwt = true

@@ -32,6 +32,8 @@ export function corsHeaders(request: Request): HeadersInit {
     configuredOrigin,
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
   ].filter((value): value is string => Boolean(value));
   const requestedOrigin = request.headers.get("origin");
   const allowedOrigin = requestedOrigin && allowedOrigins.includes(requestedOrigin)
@@ -119,15 +121,8 @@ export function createOAuthState(): string {
 }
 
 export async function encryptTokenPayload(payload: unknown): Promise<string> {
-  const encodedKey = getEnv("OAUTH_ENCRYPTION_KEY").replaceAll("-", "+").replaceAll("_", "/");
-  let rawKey: Uint8Array;
-  try {
-    rawKey = Uint8Array.from(atob(encodedKey), (character) => character.charCodeAt(0));
-  } catch {
-    throw new Error("OAUTH_ENCRYPTION_KEY must be a base64-encoded 32-byte key.");
-  }
+  const rawKey = decodeBase64(getEnv("OAUTH_ENCRYPTION_KEY"));
   if (rawKey.length !== 32) throw new Error("OAUTH_ENCRYPTION_KEY must decode to 32 bytes.");
-
   const key = await crypto.subtle.importKey("raw", rawKey, "AES-GCM", false, ["encrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await crypto.subtle.encrypt(
@@ -138,8 +133,38 @@ export async function encryptTokenPayload(payload: unknown): Promise<string> {
   return `v1.${encodeBase64(iv)}.${encodeBase64(new Uint8Array(ciphertext))}`;
 }
 
+export async function decryptTokenPayload(encrypted: string): Promise<Record<string, unknown>> {
+  const [version, encodedIv, encodedCiphertext, extra] = encrypted.split(".");
+  if (version !== "v1" || !encodedIv || !encodedCiphertext || extra) {
+    throw new Error("Stored provider credentials have an unsupported format.");
+  }
+  const rawKey = decodeBase64(getEnv("OAUTH_ENCRYPTION_KEY"));
+  if (rawKey.length !== 32) throw new Error("OAUTH_ENCRYPTION_KEY must decode to 32 bytes.");
+  const key = await crypto.subtle.importKey("raw", rawKey, "AES-GCM", false, ["decrypt"]);
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: decodeBase64(encodedIv) },
+    key,
+    decodeBase64(encodedCiphertext),
+  );
+  const payload: unknown = JSON.parse(new TextDecoder().decode(plaintext));
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Stored provider credentials are invalid.");
+  }
+  return payload as Record<string, unknown>;
+}
+
 function encodeBase64(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary);
+}
+
+function decodeBase64(value: string): Uint8Array {
+  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  try {
+    return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+  } catch {
+    throw new Error("Stored provider credentials or OAUTH_ENCRYPTION_KEY are invalid.");
+  }
 }
