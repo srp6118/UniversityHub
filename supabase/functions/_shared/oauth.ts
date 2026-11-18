@@ -7,13 +7,27 @@ export function getEnv(name: string): string {
 }
 
 export function createAdminClient() {
-  return createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"), {
+  const secretKeys = Deno.env.get("SUPABASE_SECRET_KEYS");
+  const secretKey = secretKeys
+    ? (JSON.parse(secretKeys) as Record<string, unknown>).default
+    : undefined;
+  const apiKey = typeof secretKey === "string" && secretKey.trim()
+    ? secretKey.trim()
+    : getEnv("SUPABASE_SERVICE_ROLE_KEY");
+  return createClient(getEnv("SUPABASE_URL"), apiKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
 
 export function createPublicClient() {
-  return createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_ANON_KEY"), {
+  const publishableKeys = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");
+  const publishableKey = publishableKeys
+    ? (JSON.parse(publishableKeys) as Record<string, unknown>).default
+    : undefined;
+  const apiKey = typeof publishableKey === "string" && publishableKey.trim()
+    ? publishableKey.trim()
+    : getEnv("SUPABASE_ANON_KEY");
+  return createClient(getEnv("SUPABASE_URL"), apiKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

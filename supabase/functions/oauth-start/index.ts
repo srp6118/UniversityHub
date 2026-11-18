@@ -36,7 +36,14 @@ Deno.serve(async (request) => {
     const clientSecret = Deno.env.get(
       provider === "google" ? "GOOGLE_CLIENT_SECRET" : provider === "microsoft" ? "MICROSOFT_CLIENT_SECRET" : "CANVAS_CLIENT_SECRET",
     );
-    if (!clientId || !clientSecret) throw new Error("Provider setup is incomplete.");
+    if (!clientId || !clientSecret) {
+      const credentials = provider === "google"
+        ? "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET"
+        : provider === "microsoft"
+          ? "MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET"
+          : "CANVAS_CLIENT_ID and CANVAS_CLIENT_SECRET";
+      throw new Error(`Provider OAuth credentials are missing. Configure ${credentials} in Supabase Edge Function secrets.`);
+    }
     const callbackUrl = new URL("/functions/v1/oauth-callback", getEnv("SUPABASE_URL")).toString();
     const state = createOAuthState();
     const admin = createAdminClient();
@@ -97,10 +104,11 @@ Deno.serve(async (request) => {
           message.startsWith("This Canvas domain")
         ? 400
         : 503;
+    const errorMessage = message === "Could not prepare secure sign-in."
+      ? "OAuth state storage is unavailable. Apply the OAuth migrations and check the oauth-start function logs."
+      : message || "Secure provider sign-in is not configured for this site yet.";
     return new Response(JSON.stringify({
-      error: status === 503
-        ? "Secure provider sign-in is not configured for this site yet."
-        : message,
+      error: errorMessage,
     }), {
       status,
       headers: {
