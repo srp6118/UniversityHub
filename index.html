@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="A calm, private home for your university deadlines, files, and study plans."
+    />
+    <meta name="theme-color" content="#e9ecdf" />
+    <title>University Hub — Your day, in focus.</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="/script.js"></script>
+  </head>
+  <body>
+    <main class="auth-screen" id="auth-screen">
+      <section class="auth-card" aria-labelledby="auth-heading">
+        <a class="brand auth-brand" href="#" aria-label="University Hub home">
+          <span class="brand-mark">u<span>·</span>hub</span>
+        </a>
+        <p class="eyebrow">Your university workspace</p>
+        <h1 id="auth-heading">A little more space to think.</h1>
+        <p class="auth-description" id="auth-description">Sign in to your private workspace, or create an account to get started.</p>
+        <div class="auth-method-tabs" id="auth-method-tabs" role="tablist" aria-label="Sign-in method">
+          <button class="auth-tab is-active" id="email-method-tab" type="button" role="tab" aria-selected="true">Email</button>
+          <button class="auth-tab" id="phone-method-tab" type="button" role="tab" aria-selected="false">Phone</button>
+        </div>
+        <div class="auth-tabs" id="auth-tabs" role="tablist" aria-label="Account options">
+          <button class="auth-tab is-active" id="signin-tab" type="button" role="tab" aria-selected="true">Sign in</button>
+          <button class="auth-tab" id="signup-tab" type="button" role="tab" aria-selected="false">Create account</button>
+        </div>
+        <form id="auth-form">
+          <label class="auth-field" id="full-name-field" hidden>
+            <span>Your name</span>
+            <input id="auth-name" name="name" type="text" autocomplete="name" maxlength="100" />
+          </label>
+          <label class="auth-field" id="email-field">
+            <span>Email address</span>
+            <input id="auth-email" name="email" type="email" autocomplete="email" required />
+          </label>
+          <label class="auth-field" id="phone-field" hidden>
+            <span>Mobile number</span>
+            <input id="auth-phone" name="phone" type="tel" autocomplete="tel" placeholder="+44 7..." />
+          </label>
+          <p class="auth-email-note" id="phone-note" hidden>We’ll text a one-time code to the verified mobile number on your account. Enter it in international format.</p>
+          <label class="auth-field" id="phone-code-field" hidden>
+            <span>Text message code</span>
+            <input id="auth-phone-code" name="phone-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{4,8}" />
+          </label>
+          <button class="auth-link" id="change-phone-button" type="button" hidden>Use a different number</button>
+          <p class="auth-email-note" id="signup-email-note" hidden>We’ll send a verification link to this email address before you can sign in.</p>
+          <label class="auth-field" id="password-field">
+            <span>Password</span>
+            <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="8" required />
+            <small id="password-hint">Use at least 8 characters.</small>
+          </label>
+          <button class="auth-link" id="forgot-password-button" type="button">Forgot password?</button>
+          <button class="button button-dark auth-submit" id="auth-submit" type="submit">Sign in</button>
+          <p class="auth-message" id="auth-message" role="status" aria-live="polite"></p>
+        </form>
+        <p class="auth-privacy">Your workspace is private to your account.</p>
+      </section>
+    </main>
+
+    <dialog class="phone-link-dialog" id="phone-link-dialog" aria-labelledby="phone-link-heading">
+      <form id="phone-link-form">
+        <p class="eyebrow">Account security</p>
+        <h2 id="phone-link-heading">Add mobile sign-in</h2>
+        <p class="auth-description">Verify your number to link it to this account. You can then sign in with a text message code.</p>
+        <label class="auth-field" for="phone-link-number">
+          <span>Mobile number</span>
+          <input id="phone-link-number" type="tel" autocomplete="tel" placeholder="+44 7..." required />
+        </label>
+        <label class="auth-field" id="phone-link-code-field" for="phone-link-code" hidden>
+          <span>Text message code</span>
+          <input id="phone-link-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{4,8}" />
+        </label>
+        <p class="auth-message" id="phone-link-message" role="status" aria-live="polite"></p>
+        <div class="phone-link-actions">
+          <button class="button button-outline" id="phone-link-cancel" type="button">Cancel</button>
+          <button class="button button-dark" id="phone-link-submit" type="submit">Text me a verification code</button>
+        </div>
+      </form>
+    </dialog>
+
+    <main class="onboarding-screen" id="onboarding-screen" hidden>
+      <header class="onboarding-header">
+        <a class="brand auth-brand" href="#" aria-label="University Hub home"><span class="brand-mark">u<span>·</span>hub</span></a>
+        <span class="onboarding-progress" id="onboarding-progress">Step 1 of 2</span>
+      </header>
+      <section class="onboarding-page is-active" id="onboarding-choose-page" aria-labelledby="onboarding-heading">
+        <p class="eyebrow">Make University Hub yours</p>
+        <h1 id="onboarding-heading">Welcome, <span id="onboarding-user-name">there</span>.</h1>
+        <p class="page-description onboarding-description">Choose what you want to see first. You can change these choices or add everything back from Connections at any time.</p>
+        <form id="platform-choice-form">
+          <section class="onboarding-choice-section">
+            <div class="onboarding-section-heading"><span class="onboarding-step-number">01</span><div><h2>Choose your main platform</h2><p>We’ll keep your Overview centered on one place.</p></div></div>
+            <fieldset class="platform-choice-list">
+              <legend class="visually-hidden">Main university platform</legend>
+              <label class="platform-choice-option"><input type="radio" name="main-platform" value="canvas" required /><span><strong>Canvas</strong><small>Coursework and deadlines</small></span></label>
+              <label class="platform-choice-option"><input type="radio" name="main-platform" value="minerva" /><span><strong>Minerva</strong><small>Your university portal</small></span></label>
+              <label class="platform-choice-option"><input type="radio" name="main-platform" value="blackboard" /><span><strong>Blackboard</strong><small>Course learning platform</small></span></label>
+              <label class="platform-choice-option"><input type="radio" name="main-platform" value="teams" /><span><strong>Microsoft Teams</strong><small>Classes and collaboration</small></span></label>
+            </fieldset>
+          </section>
+          <section class="onboarding-choice-section">
+            <div class="onboarding-section-heading"><span class="onboarding-step-number">02</span><div><h2>Add useful cards</h2><p>Pick the sources you want on your dashboard. These don’t connect accounts by themselves.</p></div></div>
+            <div class="dashboard-choice-grid">
+              <label class="dashboard-choice-option"><input type="checkbox" name="dashboard-source" value="canvas" /><span>Canvas deadlines</span></label>
+              <label class="dashboard-choice-option"><input type="checkbox" name="dashboard-source" value="minerva" /><span>Minerva shortcut</span></label>
+              <label class="dashboard-choice-option"><input type="checkbox" name="dashboard-source" value="blackboard" /><span>Blackboard shortcut</span></label>
+              <label class="dashboard-choice-option"><input type="checkbox" name="dashboard-source" value="teams" /><span>Teams shortcut</span></label>
+              <label class="dashboard-choice-option"><input type="checkbox" name="dashboard-source" value="google_drive" /><span>Google Drive</span></label>
+              <label class="dashboard-choice-option"><input type="checkbox" name="dashboard-source" value="google_calendar" /><span>Google Calendar</span></label>
+              <label class="dashboard-choice-option"><input type="checkbox" name="dashboard-source" value="outlook_mail" /><span>Outlook email</span></label>
+              <label class="dashboard-choice-option"><input type="checkbox" name="dashboard-source" value="outlook_calendar" /><span>Outlook Calendar</span></label>
+              <label class="dashboard-choice-option"><input type="checkbox" name="dashboard-source" value="onedrive" /><span>OneDrive</span></label>
+              <label class="dashboard-choice-option"><input type="checkbox" name="dashboard-source" value="onenote" /><span>OneNote</span></label>
+              <label class="dashboard-choice-option"><input type="checkbox" name="dashboard-source" value="uploads" /><span>My files</span></label>
+            </div>
+          </section>
+          <p class="onboarding-message" id="platform-choice-message" role="status" aria-live="polite"></p>
+          <div class="onboarding-actions">
+            <button class="button button-outline" id="platform-choice-skip" type="button">Skip setup</button>
+            <button class="button button-dark" id="platform-choice-submit" type="submit">Next: how it works</button>
+          </div>
+        </form>
+      </section>
+      <section class="onboarding-page" id="onboarding-how-page" aria-labelledby="onboarding-how-heading" hidden>
+        <p class="eyebrow">A calmer way to get started</p>
+        <h1 id="onboarding-how-heading">Everything in its place.</h1>
+        <p class="page-description onboarding-description">Your Hub is ready to grow with you. Here’s the simple rhythm.</p>
+        <div class="how-it-works-list">
+          <article class="how-it-works-card"><span>01</span><div><h2>Connect what you use</h2><p>Add Canvas, Blackboard, Minerva, Teams, Google, and Microsoft from Connections. Your choices are always editable.</p></div></article>
+          <article class="how-it-works-card"><span>02</span><div><h2>Keep your home focused</h2><p>Your main platform and selected dashboard cards are easy to find. Anything else stays available in Connections.</p></div></article>
+          <article class="how-it-works-card"><span>03</span><div><h2>Make it yours over time</h2><p>Add or remove dashboard cards whenever your courses and routines change. Your account data stays private.</p></div></article>
+        </div>
+        <p class="onboarding-message" id="onboarding-finish-message" role="status" aria-live="polite"></p>
+        <div class="onboarding-actions">
+          <button class="button button-outline" id="onboarding-back-button" type="button">Back</button>
+          <button class="button button-dark" id="onboarding-finish-button" type="button">Open my dashboard</button>
+        </div>
+      </section>
+    </main>
+
+    <div class="app-shell" id="workspace-shell" hidden>
+      <aside class="sidebar" aria-label="Main navigation">
+        <a class="brand" href="#overview" aria-label="University Hub home">
+          <span class="brand-mark">u<span>·</span>hub</span>
+        </a>
+
+        <div class="sidebar-label">Your workspace</div>
+        <nav class="primary-nav">
+          <a class="nav-link is-active" href="#overview" aria-current="page">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>
+            Overview
+          </a>
+          <a class="nav-link" href="#deadlines">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 10h16M8 14h3M8 17h6"/></svg>
+            Deadlines
+          </a>
+          <a class="nav-link" href="#calendar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M7.5 2.5v4M16.5 2.5v4M3.5 9.5h17M8 13h2M13 13h3M8 16.5h2"/></svg>
+            Calendar
+          </a>
+          <a class="nav-link" href="#files">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v5h5M9 13h6M9 16.5h6"/></svg>
+            Files
+          </a>
+          <a class="nav-link" href="#outlook">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="m4.5 7 7.5 5.5L19.5 7"/></svg>
+            Outlook
+          </a>
+          <a class="nav-link" href="#onenote">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.5h12a2 2 0 0 1 2 2v13l-8-3-8 3v-13a2 2 0 0 1 2-2Z"/><path d="M8.5 8h7M8.5 11h7"/></svg>
+            OneNote
+          </a>
+          <a class="nav-link" href="#connections">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4"/><circle cx="12" cy="12" r="4.5"/><path d="m5.9 5.9 2.8 2.8m6.6 6.6 2.8 2.8m0-12.2-2.8 2.8m-6.6 6.6-2.8 2.8"/></svg>
+            Connections
+          </a>
+          <a class="nav-link" href="#profile">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+            Profile &amp; settings
+          </a>
+          <a class="nav-link moderator-nav-link" href="#moderator" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 14.5 9l6 .8-4.4 4.2 1.1 6-5.2-2.9-5.2 2.9 1.1-6-4.4-4.2 6-.8z"/></svg>
+            Moderator
+          </a>
+          <a class="nav-link moderator-users-nav-link" href="#moderator-users" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.8M17 14a5 5 0 0 1 3.5 4.8"/></svg>
+            Manage users
+          </a>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="privacy-note"><span class="privacy-dot"></span>Private workspace</div>
+          <span class="account-email" id="account-email"></span>
+          <button class="sign-out-button" id="phone-link-button" type="button" hidden>Add mobile sign-in</button>
+          <button class="sign-out-button" id="sign-out-button" type="button">Sign out</button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <section class="view-page" id="overview-page" data-view="overview">
+        <header class="page-header">
+          <div>
+            <p class="eyebrow">Your university workspace</p>
+            <h1 id="welcome-heading">Your day, in focus<span class="heading-period">.</span></h1>
+          </div>
+          <button class="button button-outline" id="refresh-button" type="button">
+            <svg class="button-icon refresh-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.2 8a6.4 6.4 0 1 0 .1 4M16.2 3.8v4.5h-4.5"/></svg>
+            <span>Refresh view</span>
+          </button>
+        </header>
+
+        <section class="main-platform-focus" id="main-platform-focus" hidden>
+          <div><p class="eyebrow">Your main platform</p><h2 id="main-platform-focus-name"></h2><p id="main-platform-focus-description"></p></div>
+          <div class="main-platform-focus-actions"><button class="button button-dark" id="main-platform-open" type="button">Open platform</button><a class="text-link" href="#connections">Change focus <span aria-hidden="true">↗</span></a></div>
+        </section>
+        <div class="additional-platform-shortcuts" id="additional-platform-shortcuts" hidden></div>
+
+        <section class="announcement-feed-section" id="announcement-feed-section" hidden>
+          <p class="eyebrow">From your university hub</p>
+          <div class="announcement-feed" id="announcement-feed"></div>
+        </section>
+
+        <section class="search-row" aria-label="Search your workspace">
+          <label class="search-box">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.7" cy="8.7" r="5.7"/><path d="m13 13 4 4"/></svg>
+            <input id="workspace-search" type="search" placeholder="Search deadlines, files, emails and notes..." autocomplete="off" />
+            <kbd>⌘ K</kbd>
+          </label>
+          <p class="refresh-meta" id="refresh-meta">Your workspace at a glance</p>
+        </section>
+
+        <section class="metrics-grid" aria-label="Workspace summary">
+          <article class="metric-card metric-highlight">
+            <div class="metric-topline"><span class="metric-icon"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M6.5 2.5v3M13.5 2.5v3M3 8h14"/></svg></span><span class="metric-trend">This week</span></div>
+            <p class="metric-label">Canvas deadlines ahead</p>
+            <p class="metric-value" id="deadline-count">0</p>
+            <p class="metric-caption">Nothing due just yet</p>
+          </article>
+          <article class="metric-card">
+            <div class="metric-topline"><span class="metric-icon"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 2.8h7l4 4v10.4H4.5z"/><path d="M11.5 2.8v4h4M7.5 11h5M7.5 14h5"/></svg></span><span class="metric-trend">Across your sources</span></div>
+            <p class="metric-label">Files in one place</p>
+            <p class="metric-value" id="file-count">0</p>
+            <p class="metric-caption">Ready when you connect a source</p>
+          </article>
+          <article class="metric-card">
+            <div class="metric-topline"><span class="metric-icon"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.7v3.1M10 14.2v3.1M2.7 10h3.1M14.2 10h3.1"/><circle cx="10" cy="10" r="4.1"/></svg></span><span class="metric-trend">Workspace status</span></div>
+            <p class="metric-label">Sources connected</p>
+            <p class="metric-value"><span id="connected-count">0</span> <span class="metric-divider">/</span> 8</p>
+            <p class="metric-caption">Your workspace is getting started</p>
+          </article>
+        </section>
+
+        <section class="section-block" id="overview-connections">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Your workspace</p>
+              <h2>Connected, at a glance</h2>
+            </div>
+            <span class="section-note" id="sync-status"><span class="status-pulse"></span>No sources connected</span>
+          </div>
+          <div class="source-grid" id="source-grid">
+            <article class="source-card" data-provider="canvas" data-search="canvas deadlines coursework"><div class="source-heading"><span class="source-symbol canvas-symbol">C</span><h3>Canvas</h3></div><p>Waiting for first sync</p><span class="source-status disconnected">Not connected</span></article>
+            <article class="source-card" data-provider="google_drive" data-search="google drive files documents"><div class="source-heading"><span class="source-symbol drive-symbol"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m7 3 3.2 0 6.7 11.6h-3.5z" fill="currentColor"/><path d="M7 3 1.2 13l1.8 3.1L9 6.1z" fill="currentColor"/><path d="M3 16.1h11.5l2.4-3.5H5z" fill="currentColor"/></svg></span><h3>Google Drive</h3></div><p>Waiting for first sync</p><span class="source-status disconnected">Not connected</span></article>
+            <article class="source-card" data-provider="google_calendar" data-search="google calendar events"><div class="source-heading"><span class="source-symbol calendar-symbol"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="4" width="15" height="13" rx="2"/><path d="M6 2.5v3M14 2.5v3M2.5 8h15M6 11h2M11 11h3M6 14h2"/></svg></span><h3>Google Calendar</h3></div><p>Waiting for first sync</p><span class="source-status disconnected">Not connected</span></article>
+            <article class="source-card" data-provider="outlook_mail" data-search="outlook email messages"><div class="source-heading"><span class="source-symbol outlook-symbol"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="4" width="15" height="12" rx="2"/><path d="m3.5 5.5 6.5 5 6.5-5"/></svg></span><h3>Outlook email</h3></div><p>Waiting for first sync</p><span class="source-status disconnected">Not connected</span></article>
+            <article class="source-card" data-provider="outlook_calendar" data-search="outlook calendar"><div class="source-heading"><span class="source-symbol outlook-symbol"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="4" width="15" height="13" rx="2"/><path d="M6 2.5v3M14 2.5v3M2.5 8h15M6 11h2M11 11h3"/></svg></span><h3>Outlook Calendar</h3></div><p>Waiting for first sync</p><span class="source-status disconnected">Not connected</span></article>
+            <article class="source-card" data-provider="onedrive" data-search="onedrive files documents"><div class="source-heading"><span class="source-symbol onedrive-symbol"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.3 13.8H4.5a2.8 2.8 0 0 1-.2-5.6A4.4 4.4 0 0 1 12.7 7a3.5 3.5 0 0 1 1 6.8H8.3Z"/></svg></span><h3>OneDrive</h3></div><p>Waiting for first sync</p><span class="source-status disconnected">Not connected</span></article>
+            <article class="source-card" data-provider="onenote" data-search="onenote notes"><div class="source-heading"><span class="source-symbol onenote-symbol">N</span><h3>OneNote</h3></div><p>Waiting for first sync</p><span class="source-status disconnected">Not connected</span></article>
+            <article class="source-card" data-provider="uploads" data-search="other files uploads"><div class="source-heading"><span class="source-symbol files-symbol"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h5l1.5 2H17v8.8H3z"/><path d="M3 7.5V4.2h5l1.5 1.3"/></svg></span><h3>Other files</h3></div><p>Your private file space</p><span class="source-status disconnected">No files yet</span></article>
+          </div>
+          <p class="search-empty" id="search-empty" hidden>No sources match that search. Try another keyword.</p>
+        </section>
+
+        <section class="section-block activity-section" id="activity">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">The things that matter</p>
+              <h2>Upcoming deadlines &amp; recent activity</h2>
+            </div>
+            <p class="section-note">Select records to give your study assistant context</p>
+          </div>
+          <div class="empty-activity">
+            <span class="empty-illustration" aria-hidden="true">
+              <svg viewBox="0 0 64 64"><rect x="13" y="15" width="38" height="36" rx="5"/><path d="M22 11v9M42 11v9M13 25h38M23 34h7M23 41h18"/><path d="m39 36 3 3 6-7"/></svg>
+            </span>
+            <div><h3>A little room to breathe.</h3><p>Your deadlines and recent activity will show up here once your workspace is connected.</p></div>
+            <a class="text-link" href="#connections">Explore your sources <span aria-hidden="true">↗</span></a>
+          </div>
+        </section>
+
+        <section class="assistant-panel" aria-labelledby="assistant-heading">
+          <div class="assistant-intro">
+            <span class="assistant-kicker"><span class="assistant-spark">✳</span> Your study assistant</span>
+            <h2 id="assistant-heading">A clearer next step.</h2>
+            <p>Bring your notes and deadlines together to make a plan that feels manageable.</p>
+          </div>
+          <div class="assistant-form">
+            <label for="provider-select">Provider</label>
+            <select id="provider-select" aria-label="Choose an AI provider">
+              <option>OpenAI</option>
+              <option>Anthropic</option>
+              <option>Local model</option>
+            </select>
+            <span class="selection-note">0 records selected</span>
+          </div>
+          <form id="assistant-form">
+            <label class="visually-hidden" for="assistant-prompt">Ask your study assistant</label>
+            <textarea id="assistant-prompt" rows="2" placeholder="What should I prioritise this week?"></textarea>
+            <div class="assistant-form-bottom">
+              <p class="privacy-disclaimer"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="2"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>Assistant preview only · No account or provider is connected</p>
+              <button class="button button-dark" type="submit">Preview question <span aria-hidden="true">↗</span></button>
+            </div>
+            <p class="assistant-feedback" id="assistant-feedback" role="status" hidden></p>
+          </form>
+        </section>
+
+        <footer class="page-footer"><span>University Hub</span><span>A little more space to think.</span></footer>
+        </section>
+
+        <section class="view-page detail-page" id="deadlines-page" data-view="deadlines" hidden>
+          <header class="page-header">
+            <div><p class="eyebrow">Canvas workspace</p><h1>Deadlines<span class="heading-period">.</span></h1><p class="page-description">A clear view of upcoming coursework and what needs your attention next.</p></div>
+          </header>
+          <div class="detail-stats">
+            <article class="detail-stat"><span>Due in the next 7 days</span><strong id="deadline-page-count">0</strong></article>
+            <article class="detail-stat"><span>Canvas connection</span><strong id="deadline-connection-status">Not connected</strong></article>
+          </div>
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Your coursework</p><h2>Upcoming deadlines</h2></div><span class="section-note">Sorted by due date</span></div>
+            <div class="record-list" id="deadlines-list"></div>
+          </section>
+          <a class="detail-link" href="#connections">Manage your Canvas connection <span aria-hidden="true">↗</span></a>
+        </section>
+
+        <section class="view-page detail-page" id="calendar-page" data-view="calendar" hidden>
+          <header class="page-header">
+            <div><p class="eyebrow">Your schedule</p><h1>Calendar<span class="heading-period">.</span></h1><p class="page-description">Classes, study sessions, and important dates from your connected calendars.</p></div>
+          </header>
+          <div class="detail-stats">
+            <article class="detail-stat"><span>Upcoming events</span><strong id="calendar-event-count">0</strong></article>
+            <article class="detail-stat"><span>Calendar sources</span><strong id="calendar-source-count">0 <small>connected</small></strong></article>
+          </div>
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Your agenda</p><h2>Upcoming events</h2></div><span class="section-note">Google Calendar &amp; Outlook</span></div>
+            <div class="record-list" id="calendar-list"></div>
+          </section>
+          <a class="detail-link" href="#connections">Connect a calendar <span aria-hidden="true">↗</span></a>
+        </section>
+
+        <section class="view-page detail-page" id="files-page" data-view="files" hidden>
+          <header class="page-header">
+            <div><p class="eyebrow">Your study materials</p><h1>Files<span class="heading-period">.</span></h1><p class="page-description">Course documents and study materials, together in one private place.</p></div>
+          </header>
+          <div class="detail-stats">
+            <article class="detail-stat"><span>Files in your workspace</span><strong id="files-page-count">0</strong></article>
+            <article class="detail-stat"><span>Storage</span><strong>Private</strong></article>
+          </div>
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Across your sources</p><h2>Recent files</h2></div><span class="section-note">Drive · OneDrive · uploads</span></div>
+            <div class="record-list" id="files-list"></div>
+          </section>
+          <div class="detail-callout"><strong>Keep it yours.</strong><span>Files are stored in your private workspace and are only visible to your account.</span></div>
+        </section>
+
+        <section class="view-page detail-page" id="outlook-page" data-view="outlook" hidden>
+          <header class="page-header">
+            <div><p class="eyebrow">Microsoft Outlook</p><h1>Outlook<span class="heading-period">.</span></h1><p class="page-description">A focused space for important messages and calendar updates.</p></div>
+          </header>
+          <div class="detail-stats">
+            <article class="detail-stat"><span>Messages saved</span><strong id="outlook-message-count">0</strong></article>
+            <article class="detail-stat"><span>Outlook connections</span><strong id="outlook-connection-count">0 <small>connected</small></strong></article>
+          </div>
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Your mailbox</p><h2>Recent messages</h2></div><span class="section-note">Email stays in your Outlook account</span></div>
+            <div class="record-list" id="outlook-list"></div>
+          </section>
+          <a class="detail-link" href="#connections">Manage Outlook connections <span aria-hidden="true">↗</span></a>
+        </section>
+
+        <section class="view-page detail-page" id="onenote-page" data-view="onenote" hidden>
+          <header class="page-header">
+            <div><p class="eyebrow">Your class notes</p><h1>OneNote<span class="heading-period">.</span></h1><p class="page-description">Find recent lecture notes and study ideas without losing your train of thought.</p></div>
+          </header>
+          <div class="detail-stats">
+            <article class="detail-stat"><span>Notes in your workspace</span><strong id="onenote-count">0</strong></article>
+            <article class="detail-stat"><span>OneNote connection</span><strong id="onenote-connection-status">Not connected</strong></article>
+          </div>
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Recently updated</p><h2>Your notes</h2></div><span class="section-note">Synced from your account</span></div>
+            <div class="record-list" id="onenote-list"></div>
+          </section>
+          <a class="detail-link" href="#connections">Connect OneNote <span aria-hidden="true">↗</span></a>
+        </section>
+
+        <section class="view-page detail-page" id="connections-page" data-view="connections" hidden>
+          <header class="page-header">
+            <div><p class="eyebrow">Your private workspace</p><h1>Connections<span class="heading-period">.</span></h1><p class="page-description">Securely authorize your school and productivity accounts. You can disconnect them at any time.</p></div>
+          </header>
+          <div class="detail-callout connection-callout"><strong>Secure by design.</strong><span>Connect with each provider's sign-in page. University Hub never asks for your service passwords. Connections are private to your account.</span></div>
+          <p class="connection-feedback" id="connection-feedback" role="status" aria-live="polite"></p>
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Your home page</p><h2>Choose your main platform</h2></div></div>
+            <div class="main-platform-settings">
+              <label class="auth-field" for="main-platform-select"><span>Show this platform on Overview</span>
+                <select id="main-platform-select">
+                  <option value="">No main platform</option>
+                  <option value="canvas">Canvas</option>
+                  <option value="minerva">Minerva</option>
+                  <option value="blackboard">Blackboard</option>
+                  <option value="teams">Microsoft Teams</option>
+                </select>
+              </label>
+              <button class="button button-outline" id="main-platform-save" type="button">Save home focus</button>
+            </div>
+            <p class="setup-note" id="main-platform-settings-message" role="status" aria-live="polite">Changing your home focus does not remove any other connections or shortcuts.</p>
+          </section>
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Overview cards</p><h2>Choose what appears on your dashboard</h2></div></div>
+            <div class="dashboard-settings-grid" id="dashboard-settings-grid"></div>
+            <button class="button button-outline dashboard-settings-save" id="dashboard-settings-save" type="button">Save dashboard cards</button>
+            <p class="setup-note" id="dashboard-settings-message" role="status" aria-live="polite">Hiding a card never disconnects the service. Add it back here whenever you want.</p>
+          </section>
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Learning platforms</p><h2>All your platforms</h2></div><span class="section-note">Always available, whatever your home focus</span></div>
+            <div class="platform-launcher-grid">
+              <article class="platform-launcher-card" data-platform-card="canvas">
+                <div><h3>Canvas</h3><p>Open your institution's course portal.</p></div>
+                <label class="auth-field" for="platform-url-canvas"><span>Canvas portal URL</span><input id="platform-url-canvas" type="url" inputmode="url" placeholder="https://canvas.yourschool.edu" autocomplete="url" /></label>
+                <div class="provider-connect-actions"><button class="button button-outline" type="button" data-save-platform-url="canvas">Save link</button><button class="button button-dark" type="button" data-open-platform="canvas">Open Canvas</button></div>
+              </article>
+              <article class="platform-launcher-card" data-platform-card="minerva">
+                <div><h3>Minerva</h3><p>Open your university Minerva portal.</p></div>
+                <label class="auth-field" for="platform-url-minerva"><span>Minerva portal URL</span><input id="platform-url-minerva" type="url" inputmode="url" placeholder="https://minerva.yourschool.edu" autocomplete="url" /></label>
+                <div class="provider-connect-actions"><button class="button button-outline" type="button" data-save-platform-url="minerva">Save link</button><button class="button button-dark" type="button" data-open-platform="minerva">Open Minerva</button></div>
+              </article>
+              <article class="platform-launcher-card" data-platform-card="blackboard">
+                <div><h3>Blackboard</h3><p>Open your institution's Blackboard course portal.</p></div>
+                <label class="auth-field" for="platform-url-blackboard"><span>Blackboard portal URL</span><input id="platform-url-blackboard" type="url" inputmode="url" placeholder="https://blackboard.yourschool.edu" autocomplete="url" /></label>
+                <div class="provider-connect-actions"><button class="button button-outline" type="button" data-save-platform-url="blackboard">Save link</button><button class="button button-dark" type="button" data-open-platform="blackboard">Open Blackboard</button></div>
+              </article>
+              <article class="platform-launcher-card" data-platform-card="teams">
+                <div><h3>Microsoft Teams</h3><p>Open Teams to access your classes and conversations.</p></div>
+                <p class="platform-default-url">teams.microsoft.com</p>
+                <div class="provider-connect-actions"><button class="button button-dark" type="button" data-open-platform="teams">Open Teams</button></div>
+              </article>
+            </div>
+          </section>
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Add an account</p><h2>Choose a service</h2></div></div>
+            <div class="provider-connect-grid">
+              <article class="provider-connect-card" data-oauth-provider="google">
+                <div><h3>Google</h3><p>Authorize Drive and Calendar access.</p><span class="provider-connect-status" data-provider-status="google">Not connected</span></div>
+                <div class="provider-connect-actions">
+                  <button class="button button-dark" type="button" data-connect-provider="google">Connect Google</button>
+                  <button class="button button-outline" type="button" data-disconnect-provider="google" hidden>Disconnect</button>
+                </div>
+              </article>
+              <article class="provider-connect-card" data-oauth-provider="microsoft">
+                <div><h3>Microsoft</h3><p>Authorize Outlook, OneDrive, and OneNote access.</p><span class="provider-connect-status" data-provider-status="microsoft">Not connected</span></div>
+                <div class="provider-connect-actions">
+                  <button class="button button-dark" type="button" data-connect-provider="microsoft">Connect Microsoft</button>
+                  <button class="button button-outline" type="button" data-disconnect-provider="microsoft" hidden>Disconnect</button>
+                </div>
+              </article>
+              <article class="provider-connect-card canvas-connect-card" data-oauth-provider="canvas">
+                <div><h3>Canvas</h3><p>Enter your school's Canvas web address, then authorize course and assignment access.</p><span class="provider-connect-status" data-provider-status="canvas">Not connected</span></div>
+                <label class="auth-field" for="canvas-instance-url"><span>School Canvas URL</span><input id="canvas-instance-url" type="url" inputmode="url" placeholder="https://canvas.yourschool.edu" autocomplete="url" /></label>
+                <div class="provider-connect-actions">
+                  <button class="button button-dark" type="button" data-connect-provider="canvas">Connect Canvas</button>
+                  <button class="button button-outline" type="button" data-disconnect-provider="canvas" hidden>Disconnect</button>
+                </div>
+              </article>
+              <article class="provider-connect-card minerva-connect-card">
+                <div><h3>Minerva</h3><p>Save your school's Minerva portal and open it to sign in there. This is a shortcut only; it does not share your password or sync data.</p><span class="provider-connect-status" id="minerva-portal-status">Portal shortcut</span></div>
+                <label class="auth-field" for="minerva-portal-url"><span>School Minerva URL</span><input id="minerva-portal-url" type="url" inputmode="url" placeholder="https://minerva.yourschool.edu" autocomplete="url" /></label>
+                <div class="provider-connect-actions">
+                  <button class="button button-dark" id="minerva-open-button" type="button">Open Minerva</button>
+                </div>
+              </article>
+            </div>
+          </section>
+          <section class="detail-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Connected services</p><h2>Account status</h2></div><span class="section-note" id="connections-page-count">0 of 7 linked</span></div>
+            <div class="connection-detail-list" id="connections-detail-list"></div>
+          </section>
+          <p class="setup-note">Account authorization does not copy files or sync messages yet. Your administrator must configure provider apps and deploy the secure OAuth functions before connect buttons can work.</p>
+        </section>
+
+        <section class="view-page detail-page" id="profile-page" data-view="profile" hidden>
+          <header class="page-header">
+            <div><p class="eyebrow">Your account</p><h1>Profile &amp; settings<span class="heading-period">.</span></h1><p class="page-description">Update your profile, manage your password, or permanently delete your University Hub account. While you use the app, a timestamp is updated about once a minute to estimate active-member counts; moderators cannot see your pages or private content.</p></div>
+          </header>
+          <section class="detail-panel profile-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Personal details</p><h2>Your profile</h2></div></div>
+            <form id="profile-form">
+              <label class="auth-field" for="profile-full-name"><span>Name</span><input id="profile-full-name" type="text" maxlength="100" autocomplete="name" required /></label>
+              <label class="auth-field" for="profile-email"><span>Email address</span><input id="profile-email" type="email" readonly /></label>
+              <p class="account-settings-message" id="profile-message" role="status" aria-live="polite"></p>
+              <button class="button button-dark" id="profile-save-button" type="submit">Save profile</button>
+            </form>
+          </section>
+          <section class="detail-panel profile-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Account security</p><h2>Change your password</h2></div></div>
+            <p class="page-description profile-panel-description">We’ll email a one-time verification code to your account. Enter that code here with your new password.</p>
+            <form id="password-change-form">
+              <button class="button button-outline" id="password-pin-request" type="button">Email me a verification code</button>
+              <label class="auth-field" for="password-verification-code"><span>Email verification code</span><input id="password-verification-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{6,8}" required /></label>
+              <label class="auth-field" for="new-account-password"><span>New password</span><input id="new-account-password" type="password" autocomplete="new-password" minlength="8" required /></label>
+              <label class="auth-field" for="confirm-account-password"><span>Confirm new password</span><input id="confirm-account-password" type="password" autocomplete="new-password" minlength="8" required /></label>
+              <p class="account-settings-message" id="password-change-message" role="status" aria-live="polite"></p>
+              <button class="button button-dark" id="password-change-submit" type="submit">Verify code and change password</button>
+            </form>
+          </section>
+          <section class="detail-panel profile-panel danger-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Permanently remove your account</p><h2>Delete account</h2></div></div>
+            <p class="page-description profile-panel-description">This permanently deletes your profile, private workspace data, connections, and sign-in. Published announcements remain visible, but are no longer attributed to your account. This cannot be undone.</p>
+            <form id="delete-account-form">
+              <label class="auth-field" for="delete-account-confirmation"><span>Type DELETE to confirm</span><input id="delete-account-confirmation" type="text" autocomplete="off" required /></label>
+              <p class="account-settings-message" id="delete-account-message" role="status" aria-live="polite"></p>
+              <button class="button button-danger" id="delete-account-submit" type="submit">Permanently delete my account</button>
+            </form>
+          </section>
+        </section>
+
+        <section class="view-page detail-page" id="moderator-page" data-view="moderator" hidden>
+          <header class="page-header">
+            <div><p class="eyebrow">Site-wide tools</p><h1>Moderator<span class="heading-period">.</span></h1><p class="page-description">Help members and manage announcements. Activity here is limited to account sign-ins and recent presence; private files, messages, and study records are never shown.</p></div>
+          </header>
+          <section class="detail-panel moderator-users-launcher">
+            <div>
+              <p class="eyebrow">Member support</p>
+              <h2>Manage user accounts</h2>
+              <p class="page-description">View sign-up and recent activity, send a password reset email, or remove a member account.</p>
+            </div>
+            <a class="button button-dark" href="#moderator-users">Open user management</a>
+          </section>
+          <section class="detail-panel moderator-panel">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Shared with all members</p><h2 id="announcement-form-heading">Create an announcement</h2></div></div>
+            <form id="announcement-form">
+              <input id="announcement-id" type="hidden" />
+              <label class="auth-field"><span>Announcement title</span><input id="announcement-title" type="text" maxlength="120" required /></label>
+              <label class="auth-field"><span>Message</span><textarea id="announcement-body" rows="4" maxlength="2000" required></textarea></label>
+              <label class="publish-option"><input id="announcement-published" type="checkbox" checked /> Publish for all users</label>
+              <div class="moderator-form-actions">
+                <button class="button button-dark" id="announcement-submit" type="submit">Publish announcement</button>
+                <button class="button button-outline" id="announcement-cancel" type="button" hidden>Cancel edit</button>
+              </div>
+              <p class="auth-message" id="announcement-message" role="status" aria-live="polite"></p>
+            </form>
+          </section>
+          <section class="detail-panel moderator-announcements">
+            <div class="detail-panel-heading"><div><p class="eyebrow">Site content</p><h2>Manage announcements</h2></div><span class="section-note" id="moderator-announcement-count">0 announcements</span></div>
+            <div class="moderator-announcement-list" id="moderator-announcement-list"></div>
+          </section>
+        </section>
+
+        <section class="view-page detail-page" id="moderator-users-page" data-view="moderator-users" hidden>
+          <header class="page-header">
+            <div>
+              <a class="text-link moderator-back-link" href="#moderator">← Back to moderator tools</a>
+              <p class="eyebrow">Member support</p>
+              <h1>Manage users<span class="heading-period">.</span></h1>
+              <p class="page-description">Review sign-ups and recent presence, send a password reset email, or remove an account. Private files, messages, and study records are not shown.</p>
+            </div>
+            <button class="button button-outline moderator-refresh" id="moderator-activity-refresh" type="button">Refresh</button>
+          </header>
+          <section class="detail-panel moderator-members-panel">
+            <div class="detail-stats moderator-stats">
+              <article class="detail-stat"><span>Members</span><strong id="moderator-total-users">—</strong></article>
+              <article class="detail-stat"><span>Active in last 5 min</span><strong id="moderator-active-now">—</strong></article>
+              <article class="detail-stat"><span>Active in last 7 days</span><strong id="moderator-active-week">—</strong></article>
+            </div>
+            <div class="moderator-member-toolbar">
+              <p class="section-note" id="moderator-member-count">Showing recent accounts</p>
+              <label class="moderator-search"><input id="moderator-member-search" type="search" placeholder="Search this page" aria-label="Search member accounts on this page" autocomplete="off" /></label>
+            </div>
+            <div class="moderator-table-wrap">
+              <table class="moderator-member-table">
+                <thead><tr><th scope="col">Member</th><th scope="col">Joined</th><th scope="col">Last sign-in</th><th scope="col">Last active</th><th scope="col">Access</th><th scope="col"><span class="moderator-action-heading">Actions</span></th></tr></thead>
+                <tbody id="moderator-member-list"></tbody>
+              </table>
+            </div>
+            <div class="moderator-pagination">
+              <span class="section-note" id="moderator-page-count">Page 1 of 1</span>
+              <div><button class="button button-outline" id="moderator-page-previous" type="button" disabled>Previous</button><button class="button button-outline" id="moderator-page-next" type="button" disabled>Next</button></div>
+            </div>
+            <p class="auth-message" id="moderator-activity-message" role="status" aria-live="polite"></p>
+          </section>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
