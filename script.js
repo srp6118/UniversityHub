@@ -1,5 +1,6 @@
 import { isSupabaseConfigured, supabase } from "./src/supabase.js";
 import { initializeBudget } from "./src/budget.js";
+import { initializeLectureNotes } from "./src/lecture-notes.js";
 
 const authScreen = document.querySelector("#auth-screen");
 const workspaceShell = document.querySelector("#workspace-shell");
@@ -152,6 +153,7 @@ const platformUrls = {
 const pageTitles = {
   overview: "Your day, in focus",
   budget: "Budget",
+  "lecture-notes": "Lecture notes",
   deadlines: "Deadlines",
   calendar: "Calendar",
   files: "Files",
@@ -194,9 +196,14 @@ const budget = initializeBudget({
   getCurrentUserId: () => currentUserId,
   getCurrentUserEmail: () => currentUserEmail,
 });
+const lectureNotes = initializeLectureNotes({
+  supabase,
+  getCurrentUserId: () => currentUserId,
+});
 
 function resetPrivateWorkspace() {
   budget.reset();
+  lectureNotes.reset();
   document.querySelector("#deadline-count").textContent = "0";
   document.querySelector("#file-count").textContent = "0";
   document.querySelector("#connected-count").textContent = "0";
@@ -406,6 +413,7 @@ async function showSignedIn(user) {
       loadPrivateWorkspaceData(user.id),
       loadUserPreferences(user.id),
       budget.load(user.id),
+      lectureNotes.load(user.id),
     ]);
     assistantMessages = [];
     assistantConversation.replaceChildren();
@@ -1238,7 +1246,11 @@ async function disconnectProvider(provider, button) {
     const { error } = await supabase.functions.invoke("oauth-disconnect", { body: { provider } });
     if (error) throw error;
     showConnectionFeedback("University Hub removed the stored authorization. Revoke its provider grant in your account security settings to fully invalidate access.", "success");
-    await Promise.all([loadPrivateWorkspaceData(currentUserId), budget.refresh()]);
+    await Promise.all([
+      loadPrivateWorkspaceData(currentUserId),
+      budget.refresh(),
+      lectureNotes.refresh(),
+    ]);
   } catch (error) {
     showConnectionFeedback(error.message || "Could not disconnect this account. Try again.", "error");
   } finally {
