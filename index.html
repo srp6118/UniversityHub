@@ -423,12 +423,21 @@
             <div class="detail-panel-heading"><div><p class="eyebrow">Plan the period</p><h2 id="budget-limit-heading">Set your weekly limit</h2></div><span class="budget-preview-badge" id="budget-limit-preview" hidden>Preview — not saved</span></div>
             <form id="budget-limit-form" class="budget-slider-form">
               <label class="budget-slider-label" for="budget-limit-slider">Overall budget limit</label>
+              <div class="budget-limit-presets" id="budget-limit-presets" role="group" aria-label="Suggested student spending budgets">
+                <span>Student guide &amp; higher options</span>
+                <button type="button" data-budget-preset="100" aria-pressed="false">£100</button>
+                <button type="button" data-budget-preset="150" aria-pressed="false">£150</button>
+                <button type="button" data-budget-preset="200" aria-pressed="false">£200</button>
+                <button type="button" data-budget-preset="250" aria-pressed="false">£250</button>
+                <button type="button" data-budget-preset="300" aria-pressed="false">£300</button>
+                <button type="button" data-budget-preset="400" aria-pressed="false">£400</button>
+              </div>
               <div class="budget-slider-row">
-                <input id="budget-limit-slider" type="range" min="0" max="100000000" step="1" value="0" aria-label="Overall budget limit slider" />
+                <input id="budget-limit-slider" type="range" min="0" max="20000" step="100" value="0" aria-label="Overall budget limit slider" />
                 <label class="budget-money-field"><span class="visually-hidden">Overall budget limit in pounds</span><span>£</span><input id="budget-limit-input" type="number" min="0" max="1000000" step="0.01" value="0.00" inputmode="decimal" /></label>
                 <button class="button button-dark" id="budget-limit-save" type="submit">Save limit</button>
               </div>
-              <p class="budget-help">You can review earlier weeks or months with the period controls above. Amounts are saved to the selected period.</p>
+              <p class="budget-help" id="budget-limit-help">The weekly guide starts at £0–£200 for day-to-day spending, excluding rent. Choose a higher preset or enter your own amount; rent and fixed costs can be tracked separately under recurring costs.</p>
             </form>
           </section>
 
@@ -569,18 +578,46 @@
         </section>
 
         <section class="view-page detail-page" id="calendar-page" data-view="calendar" hidden>
-          <header class="page-header">
-            <div><p class="eyebrow">Your schedule</p><h1>Calendar<span class="heading-period">.</span></h1><p class="page-description">Classes, study sessions, and important dates from your connected calendars.</p></div>
+          <header class="page-header calendar-page-header">
+            <div><p class="eyebrow">Your schedule</p><h1>Calendar<span class="heading-period">.</span></h1><p class="page-description">A calmer view of your week, coursework, and time to switch off.</p></div>
+            <button class="button button-outline calendar-refresh-button" id="calendar-refresh" type="button"><span aria-hidden="true">↻</span> Refresh</button>
           </header>
           <div class="detail-stats">
-            <article class="detail-stat"><span>Upcoming events</span><strong id="calendar-event-count">0</strong></article>
+            <article class="detail-stat"><span>Events this week</span><strong id="calendar-event-count">0</strong></article>
             <article class="detail-stat"><span>Calendar sources</span><strong id="calendar-source-count">0 <small>connected</small></strong></article>
           </div>
-          <section class="detail-panel">
-            <div class="detail-panel-heading"><div><p class="eyebrow">Your agenda</p><h2>Upcoming events</h2></div><span class="section-note">Google Calendar &amp; Outlook</span></div>
-            <div class="record-list" id="calendar-list"></div>
+          <section class="calendar-hero">
+            <div class="calendar-hero-copy">
+              <p class="eyebrow">A little more breathing room</p>
+              <h2>Make space for the week ahead.</h2>
+              <p>Your connected calendars and Canvas deadlines come together here, so you can see what is fixed and where you have room.</p>
+            </div>
+            <div class="calendar-hero-note"><span class="calendar-hero-spark" aria-hidden="true">✳</span><span id="calendar-sync-status" role="status">Sign in to sync your schedule.</span><small id="calendar-last-synced">Your calendar data stays private.</small></div>
           </section>
-          <a class="detail-link" href="#connections">Connect a calendar <span aria-hidden="true">↗</span></a>
+          <section class="detail-panel calendar-week-panel" aria-labelledby="calendar-week-heading">
+            <div class="detail-panel-heading calendar-week-heading">
+              <div><p class="eyebrow">Your agenda</p><h2 id="calendar-week-heading">This week</h2></div>
+              <div class="calendar-period-controls">
+                <button class="icon-button" id="calendar-previous-week" type="button" aria-label="Previous week">←</button>
+                <button class="button button-secondary" id="calendar-current-week" type="button">Today</button>
+                <button class="icon-button" id="calendar-next-week" type="button" aria-label="Next week">→</button>
+              </div>
+            </div>
+            <div class="calendar-week-grid" id="calendar-week-grid" aria-live="polite"></div>
+          </section>
+          <section class="calendar-planner-panel" aria-labelledby="calendar-planner-heading">
+            <div class="calendar-planner-intro">
+              <p class="eyebrow">The social planner</p>
+              <h2 id="calendar-planner-heading">A good time to make plans?</h2>
+              <p>Suggestions use only events and Canvas deadlines available here. They are a helpful guide, not a view of commitments outside your connected accounts.</p>
+            </div>
+            <div class="calendar-planner-columns">
+              <div class="calendar-planner-column"><h3><span aria-hidden="true">✳</span> Lower-conflict windows</h3><div id="calendar-social-windows"></div></div>
+              <div class="calendar-planner-column calendar-protect-column"><h3><span aria-hidden="true">↗</span> Keep these in mind</h3><div id="calendar-protect-days"></div></div>
+            </div>
+          </section>
+          <div class="detail-callout calendar-readonly-note"><strong>Read-only by design.</strong><span>Events appear in University Hub when you connect a source. This does not add or change events in Google Calendar or Outlook.</span></div>
+          <a class="detail-link" href="#connections">Manage calendar and Canvas connections <span aria-hidden="true">↗</span></a>
         </section>
 
         <section class="view-page detail-page" id="files-page" data-view="files" hidden>
