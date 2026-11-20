@@ -80,9 +80,9 @@ Apply `20261118154500_ai_provider_tokens.sql`, set `OAUTH_ENCRYPTION_KEY`, and d
 
 ## Lecture recordings and private notes
 
-The Lecture notes page records audio in the browser, sends it to the OpenAI transcription API using the user's connected OpenAI API key, and saves the returned transcript to that user's private notes. Audio is stored temporarily in a private, size-limited bucket and deleted after processing; account deletion also removes any leftover temporary audio. Users must connect an OpenAI API key in Connections and consent before recording. The audio is sent to OpenAI, and its API use may incur charges. The feature does not retain original audio or create a shared transcript.
+The Lecture notes page uses the browser's built-in Web Speech recognition to transcribe speech as it is recorded; no OpenAI account, API key, or per-transcription API charge is required. University Hub does not upload or store the recording audio. Browser recognition support varies, and the browser may process audio using its own speech service, so users are told this and must consent before recording. The resulting transcript is saved in the user's private lecture notes.
 
-Apply `20261118190000_private_lecture_notes.sql` and deploy the authenticated `transcribe-lecture` Edge Function. Users do not need a site-wide OpenAI secret; each person's encrypted key is retrieved server-side. The migration enables row-level security for saved transcripts and owner-only access to temporary audio uploads.
+Apply `20261118190000_private_lecture_notes.sql` and `20261120130000_browser_speech_lecture_notes.sql`. Transcription runs in the browser; Supabase is only used to save and retrieve notes under row-level security. No transcription function or speech-recognition API key is required. If the previous OpenAI `transcribe-lecture` function was deployed, run `npx supabase functions deploy transcribe-lecture` to replace it with the disabled handler in this repository, so the old API-backed endpoint can no longer be used. The existing private temporary-audio bucket is retained only for account cleanup; the app no longer uploads recordings.
 
 Deploy `workspace-search` after applying the existing OAuth migrations. The function refreshes expired Google and Microsoft OAuth tokens server-side and keeps refreshed tokens encrypted. It requires the existing OAuth client secrets and `OAUTH_ENCRYPTION_KEY`; it does not add any browser-side secrets.
 
@@ -131,7 +131,6 @@ supabase functions deploy moderator-activity
 supabase functions deploy moderator-delete-user
 supabase functions deploy moderator-send-password-reset
 supabase functions deploy budget-email-reminders
-supabase functions deploy transcribe-lecture
 ```
 
 Official setup references: [Google Drive scope guidance](https://developers.google.com/workspace/drive/api/guides/api-specific-auth), [Microsoft Graph permissions](https://learn.microsoft.com/graph/permissions-reference), [Canvas OAuth overview](https://developerdocs.instructure.com/services/canvas/oauth2), and [Canvas developer keys](https://developerdocs.instructure.com/services/canvas/oauth2/file.developer_keys).
@@ -144,7 +143,7 @@ The simplest public deployment is Vercel with this repository kept private. A pu
 2. Before deploying, add these two **Vercel project environment variables** from Supabase **Project Settings → API**: `VITE_SUPABASE_URL` (Project URL) and `VITE_SUPABASE_ANON_KEY` (the public anon/publishable key). Never use `service_role` or any secret key in Vercel's `VITE_` variables. Deploy, then copy the public `https://…vercel.app` address.
 3. In Supabase **Authentication → URL Configuration**, set **Site URL** to that Vercel address. Add the exact production origin and `https://your-site.vercel.app/**` to **Redirect URLs**; keep `http://localhost:5173/**` for local development. Replace the example hostname with the real one.
 4. In Supabase **Authentication → Providers → Email**, allow sign-ups and require email confirmation. Configure custom SMTP. In **Authentication → Email Templates → Reset Password**, include both `{{ .Token }}` and a clickable `{{ .ConfirmationURL }}` link for the in-app verification-code and moderator-sent link flows.
-5. From the project folder, use the Supabase CLI to apply every migration in filename order and deploy the account-management and lecture transcription functions:
+5. From the project folder, use the Supabase CLI to apply every migration in filename order and deploy the account-management functions. Only deploy the retired `transcribe-lecture` handler if the previous OpenAI version was already deployed:
 
    ```sh
    npx supabase login
@@ -159,6 +158,11 @@ The simplest public deployment is Vercel with this repository kept private. A pu
    npx supabase functions deploy moderator-delete-user
    npx supabase functions deploy moderator-send-password-reset
    npx supabase functions deploy budget-email-reminders
+   ```
+
+   If the previous OpenAI transcription function was deployed, disable it by replacing it with the local no-op handler:
+
+   ```sh
    npx supabase functions deploy transcribe-lecture
    ```
 
