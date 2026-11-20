@@ -59,6 +59,7 @@
           <p class="auth-message" id="auth-message" role="status" aria-live="polite"></p>
         </form>
         <p class="auth-privacy">Your workspace is private to your account.</p>
+        <a class="auth-support-link" href="mailto:team.uhubworkspace@gmail.com">Support: team.uhubworkspace@gmail.com</a>
       </section>
     </main>
 
@@ -158,6 +159,10 @@
           <a class="nav-link" href="#budget">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5h16M6.5 16V10m5 6V5m5 11v-8"/><circle cx="6.5" cy="8" r="1.5"/><circle cx="11.5" cy="3" r="1.5"/><circle cx="16.5" cy="6" r="1.5"/></svg>
             Budget
+          </a>
+          <a class="nav-link" href="#lecture-notes">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h3l2-6 4 12 3-9 2 6 1-3h3"/></svg>
+            Lecture notes
           </a>
           <a class="nav-link" href="#deadlines">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 10h16M8 14h3M8 17h6"/></svg>
@@ -359,7 +364,21 @@
           </form>
         </section>
 
-        <footer class="page-footer"><span>University Hub</span><span>A little more space to think.</span></footer>
+        <section class="lecture-overview-widget" aria-labelledby="lecture-overview-heading">
+          <div class="lecture-overview-art" aria-hidden="true">
+            <span class="lecture-overview-orbit"></span>
+            <span class="lecture-overview-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="lecture-overview-dot"></span>
+          </div>
+          <div class="lecture-overview-copy">
+            <p class="eyebrow">Listen now, revisit anytime</p>
+            <h2 id="lecture-overview-heading">Make space for the lecture.</h2>
+            <p id="lecture-overview-latest">Record a lecture and keep its transcript with your study notes.</p>
+            <div class="lecture-overview-meta"><span id="lecture-overview-count">No saved transcripts yet</span><a href="#lecture-notes">Explore lecture notes <span aria-hidden="true">↗</span></a></div>
+          </div>
+          <a class="button button-dark lecture-overview-action" href="#lecture-notes">Record a lecture <span aria-hidden="true">+</span></a>
+        </section>
+
         </section>
 
         <section class="view-page detail-page budget-page" id="budget-page" data-view="budget" hidden>
@@ -480,7 +499,58 @@
             <button class="button button-outline" id="budget-reminder-save" type="button">Save email reminder settings</button>
             <p class="budget-page-message" id="budget-reminder-message" role="status" aria-live="polite"></p>
           </section>
-          <footer class="page-footer"><span>University Hub</span><span>Small choices, clearer spending.</span></footer>
+        </section>
+
+        <section class="view-page detail-page lecture-page" id="lecture-notes-page" data-view="lecture-notes" hidden>
+          <header class="page-header">
+            <div>
+              <p class="eyebrow">Your voice, made revisitable</p>
+              <h1>Lecture notes<span class="heading-period">.</span></h1>
+              <p class="page-description">Record a lecture and turn it into notes you can return to later.</p>
+            </div>
+          </header>
+
+          <section class="detail-panel lecture-recorder-panel" aria-labelledby="lecture-recorder-heading">
+            <div class="detail-panel-heading">
+              <div><p class="eyebrow">Start with a recording</p><h2 id="lecture-recorder-heading">Capture the important bits.</h2></div>
+              <span class="lecture-recorder-badge"><span aria-hidden="true">●</span> Private to you</span>
+            </div>
+            <form id="lecture-record-form" class="lecture-record-form">
+              <div class="lecture-record-fields">
+                <label class="auth-field"><span>Lecture title</span><input id="lecture-title" type="text" maxlength="120" placeholder="e.g. Introduction to cell biology" required /></label>
+                <label class="auth-field"><span>Date</span><input id="lecture-date" type="date" required /></label>
+              </div>
+              <div class="lecture-consent">
+                <span class="lecture-consent-icon" aria-hidden="true">✳</span>
+                <div>
+                  <p>To transcribe, audio is temporarily uploaded and sent to OpenAI using your connected API key. Audio is deleted after processing; the transcript is saved privately. OpenAI API charges may apply.</p>
+                  <label><input id="lecture-consent-checkbox" type="checkbox" required /> I understand and agree to send this recording to OpenAI for transcription.</label>
+                </div>
+              </div>
+              <p class="lecture-record-limit">Recordings are limited to 3 hours and 20 MB at a time.</p>
+              <div class="lecture-record-controls">
+                <button class="button button-dark" id="lecture-record-button" type="button"><span aria-hidden="true">●</span> Start recording</button>
+                <span class="lecture-recording-indicator" id="lecture-recording-indicator" hidden><span></span> Recording <time id="lecture-recording-timer">00:00</time></span>
+                <a class="text-link" href="#connections">Connect OpenAI in Connections <span aria-hidden="true">↗</span></a>
+              </div>
+              <p class="lecture-feedback" id="lecture-recording-feedback" role="status" aria-live="polite"></p>
+            </form>
+          </section>
+
+          <section class="detail-panel lecture-notes-panel" aria-labelledby="saved-lecture-notes-heading">
+            <div class="detail-panel-heading">
+              <div><p class="eyebrow">Your library</p><h2 id="saved-lecture-notes-heading">Saved transcripts</h2></div>
+              <span class="lecture-note-count" id="lecture-notes-count">0 notes</span>
+            </div>
+            <p class="lecture-notes-status" id="lecture-notes-status" role="status" aria-live="polite"></p>
+            <div class="lecture-notes-list" id="lecture-notes-list"></div>
+            <button class="button button-outline lecture-notes-load-more" id="lecture-notes-load-more" type="button" hidden>Load older notes</button>
+            <div class="lecture-notes-empty" id="lecture-notes-empty">
+              <span aria-hidden="true">♫</span>
+              <h3>Your notes will find their way here.</h3>
+              <p>When you save a transcript, it stays private to your account and ready for your next study session.</p>
+            </div>
+          </section>
         </section>
 
         <section class="view-page detail-page" id="deadlines-page" data-view="deadlines" hidden>
@@ -770,6 +840,8 @@
             <p class="auth-message" id="moderator-activity-message" role="status" aria-live="polite"></p>
           </section>
         </section>
+
+        <footer class="site-footer"><span>University Hub</span><a href="mailto:team.uhubworkspace@gmail.com">Support: team.uhubworkspace@gmail.com</a></footer>
       </main>
     </div>
     <dialog class="expense-dialog" id="budget-expense-dialog" aria-labelledby="budget-expense-heading">

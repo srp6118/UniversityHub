@@ -78,6 +78,12 @@ The study assistant sends its prompt, bounded recent conversation, and up to 25 
 
 Apply `20261118154500_ai_provider_tokens.sql`, set `OAUTH_ENCRYPTION_KEY`, and deploy both `assistant-provider` and `assistant-chat`. The per-user API-key feature requires no OpenAI or Anthropic secret in site configuration because each key is supplied by its owner. The optional Site model also requires `AI_MODEL_URL` and `AI_MODEL_NAME`; `AI_MODEL_API_KEY` is optional.
 
+## Lecture recordings and private notes
+
+The Lecture notes page records audio in the browser, sends it to the OpenAI transcription API using the user's connected OpenAI API key, and saves the returned transcript to that user's private notes. Audio is stored temporarily in a private, size-limited bucket and deleted after processing; account deletion also removes any leftover temporary audio. Users must connect an OpenAI API key in Connections and consent before recording. The audio is sent to OpenAI, and its API use may incur charges. The feature does not retain original audio or create a shared transcript.
+
+Apply `20261118190000_private_lecture_notes.sql` and deploy the authenticated `transcribe-lecture` Edge Function. Users do not need a site-wide OpenAI secret; each person's encrypted key is retrieved server-side. The migration enables row-level security for saved transcripts and owner-only access to temporary audio uploads.
+
 Deploy `workspace-search` after applying the existing OAuth migrations. The function refreshes expired Google and Microsoft OAuth tokens server-side and keeps refreshed tokens encrypted. It requires the existing OAuth client secrets and `OAUTH_ENCRYPTION_KEY`; it does not add any browser-side secrets.
 
 Minerva is currently a per-browser portal shortcut: enter your institution's HTTPS Minerva URL and open it in a new tab to sign in there. University Hub does not receive your Minerva password or course data through this shortcut. Automatic Minerva integration needs the institution's specific API/OAuth documentation and approval; there is no generic Minerva connector configured here.
@@ -125,6 +131,7 @@ supabase functions deploy moderator-activity
 supabase functions deploy moderator-delete-user
 supabase functions deploy moderator-send-password-reset
 supabase functions deploy budget-email-reminders
+supabase functions deploy transcribe-lecture
 ```
 
 Official setup references: [Google Drive scope guidance](https://developers.google.com/workspace/drive/api/guides/api-specific-auth), [Microsoft Graph permissions](https://learn.microsoft.com/graph/permissions-reference), [Canvas OAuth overview](https://developerdocs.instructure.com/services/canvas/oauth2), and [Canvas developer keys](https://developerdocs.instructure.com/services/canvas/oauth2/file.developer_keys).
@@ -137,7 +144,7 @@ The simplest public deployment is Vercel with this repository kept private. A pu
 2. Before deploying, add these two **Vercel project environment variables** from Supabase **Project Settings → API**: `VITE_SUPABASE_URL` (Project URL) and `VITE_SUPABASE_ANON_KEY` (the public anon/publishable key). Never use `service_role` or any secret key in Vercel's `VITE_` variables. Deploy, then copy the public `https://…vercel.app` address.
 3. In Supabase **Authentication → URL Configuration**, set **Site URL** to that Vercel address. Add the exact production origin and `https://your-site.vercel.app/**` to **Redirect URLs**; keep `http://localhost:5173/**` for local development. Replace the example hostname with the real one.
 4. In Supabase **Authentication → Providers → Email**, allow sign-ups and require email confirmation. Configure custom SMTP. In **Authentication → Email Templates → Reset Password**, include both `{{ .Token }}` and a clickable `{{ .ConfirmationURL }}` link for the in-app verification-code and moderator-sent link flows.
-5. From the project folder, use the Supabase CLI to apply every migration in filename order and deploy the account-management functions:
+5. From the project folder, use the Supabase CLI to apply every migration in filename order and deploy the account-management and lecture transcription functions:
 
    ```sh
    npx supabase login
@@ -152,6 +159,7 @@ The simplest public deployment is Vercel with this repository kept private. A pu
    npx supabase functions deploy moderator-delete-user
    npx supabase functions deploy moderator-send-password-reset
    npx supabase functions deploy budget-email-reminders
+   npx supabase functions deploy transcribe-lecture
    ```
 
    Complete Supabase sign-in and enter any database password directly into its trusted prompt—never paste passwords, access tokens, or secret keys into a chat. Set the Supabase Edge Function secret `APP_URL` to the exact public Vercel origin. Deploy OAuth functions and configure Google/Microsoft/Canvas provider secrets only if you intend to offer those connectors; those are not required for accounts and profile settings.
