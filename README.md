@@ -46,7 +46,7 @@ The Moderator page links to a dedicated Manage users page. Moderators can send a
 
 ## Private budgeting
 
-The Overview page includes a compact weekly/monthly expenditure widget with an expense quick-entry action. The Budget page lets each signed-in user set period limits and category allocations, review spending and upcoming recurring commitments, plan social-event spending, and add, edit, or delete expenses. Amounts are stored as integer pence. Upcoming costs are estimates until a payment is recorded, at which point the app creates one actual expense and advances the next due date.
+The Overview page includes a compact weekly/monthly expenditure widget with an expense quick-entry action. The Budget page lets each signed-in user set period limits and category allocations, review spending and upcoming recurring commitments, plan social-event spending, and add, edit, or delete expenses. The weekly slider starts with a student-friendly range up to £200 for day-to-day spending, excluding rent; higher presets and custom amounts are available, with monthly suggestions scaled from the weekly guide. Rent and other fixed costs can be entered separately as recurring costs and are included in safe-to-spend projections. Amounts are stored as integer pence. Upcoming costs are estimates until a payment is recorded, at which point the app creates one actual expense and advances the next due date.
 
 Apply `20261118170000_private_budgeting.sql` with the other migrations. All budgeting rows are owner-scoped with row-level security. To enable optional 80% and 100% threshold emails, configure the Supabase Edge Function secret `RESEND_API_KEY` with a Resend sending key and, optionally, `BUDGET_REMINDER_FROM` with a sender verified in Resend (the default is `University Hub <noreply@universityhub.org.uk>`). These secrets are separate from Supabase Auth's custom SMTP settings. Deploy `budget-email-reminders`; users can opt in and choose thresholds on the Budget page. Email delivery requires the account to have an email address. Reminder sends are deduplicated by user, threshold, and period. No bank or payment integrations are used.
 
@@ -54,11 +54,13 @@ Apply `20261118170000_private_budgeting.sql` with the other migrations. All budg
 
 The Connections page starts OAuth for Google, Microsoft, and Canvas. After provider consent, Supabase Edge Functions verify the account, encrypt and store the provider tokens server-side, and mark the related services connected. Users can remove the stored token from University Hub with **Disconnect**. For full provider-side revocation, users should also remove University Hub from the provider's account security settings.
 
-The OAuth connections securely store authorization. Overview search queries Google Drive, OneDrive, Outlook mail, and active Canvas course files directly when the user submits a search; it does not download or index those files. Google Calendar, Outlook Calendar, and OneNote are not searched live. Saved workspace-record metadata can also appear in search results. Minerva, Blackboard, and Teams remain portal shortcuts, not data connectors.
+The OAuth connections securely store authorization. Overview search queries Google Drive, OneDrive, Outlook mail, and active Canvas course files directly when the user submits a search; it does not download or index those files. Calendar events appear in the separate Calendar page and are not included in Overview search. Saved workspace-record metadata can also appear in search results. Minerva, Blackboard, and Teams remain portal shortcuts, not data connectors.
+
+The Calendar page automatically reads events from the selected Google and Outlook calendars, plus upcoming Canvas course events and assignment deadlines, when a signed-in user opens or refreshes the page. It uses encrypted OAuth tokens only in the authenticated `calendar-events` Edge Function; tokens are never returned to the browser. The page is read-only and does not create or change events in external calendars. Social-plan suggestions are simple conflict checks against connected events and near-term Canvas deadlines, not a complete view of a student's commitments. Redeploy `oauth-start` if provider OAuth scopes change, then deploy `calendar-events`.
 
 ## Cross-service search and AI summaries
 
-The Overview search is a signed-in, read-only request to the `workspace-search` Supabase Edge Function. It searches Google Drive, OneDrive, Outlook mail, and files in the user's active Canvas courses, then returns provider links. It can also search the user's saved workspace-record metadata and private uploaded-file records. It does not bypass provider permissions, fetch file contents, or search Minerva, Blackboard, Teams, Google Calendar, or OneNote. Those services need their own approved APIs and consent before they can be included.
+The Overview search is a signed-in, read-only request to the `workspace-search` Supabase Edge Function. It searches Google Drive, OneDrive, Outlook mail, and files in the user's active Canvas courses, then returns provider links. It can also search the user's saved workspace-record metadata and private uploaded-file records. It does not bypass provider permissions, fetch file contents, or search Minerva, Blackboard, Teams, Google Calendar, or OneNote. Google and Outlook events are available in the separate Calendar view; the other services need their own approved APIs and consent before they can be included.
 
 File search works without an AI model. To summarize search matches, a user can connect an OpenAI or Anthropic API key from Connections; alternatively, the site operator can configure an OpenAI-compatible chat-completions endpoint as the **Site model**:
 
@@ -96,7 +98,7 @@ Before deploying the functions:
 2. Register OAuth clients with each provider and use this exact redirect URI: `https://<project-ref>.supabase.co/functions/v1/oauth-callback`.
 3. Add the provider client IDs and secrets to Supabase Edge Function secrets, never to `.env.local` or browser code. Generate an encryption key with `openssl rand -base64 32`.
 4. Set `APP_URL` to the public frontend origin. Set `CANVAS_ALLOWED_HOSTS` to the exact comma-separated Canvas hostnames approved for this deployment; arbitrary Canvas hosts are rejected.
-5. Deploy `oauth-start`, `oauth-callback`, `oauth-disconnect`, `workspace-search`, `assistant-provider`, `assistant-chat`, `account-delete`, `record-presence`, `moderator-activity`, `moderator-delete-user`, `moderator-send-password-reset`, and `budget-email-reminders` with the Supabase CLI. Set the `RESEND_API_KEY` Edge Function secret for budget reminder emails; optionally set `BUDGET_REMINDER_FROM` to a sender verified in Resend. The reminder sender configuration is independent of Auth custom SMTP.
+5. Deploy `oauth-start`, `oauth-callback`, `oauth-disconnect`, `workspace-search`, `calendar-events`, `assistant-provider`, `assistant-chat`, `account-delete`, `record-presence`, `moderator-activity`, `moderator-delete-user`, `moderator-send-password-reset`, and `budget-email-reminders` with the Supabase CLI. Set the `RESEND_API_KEY` Edge Function secret for budget reminder emails; optionally set `BUDGET_REMINDER_FROM` to a sender verified in Resend. The reminder sender configuration is independent of Auth custom SMTP.
 
 Required Edge Function secrets:
 
@@ -123,6 +125,7 @@ supabase functions deploy oauth-start
 supabase functions deploy oauth-callback
 supabase functions deploy oauth-disconnect
 supabase functions deploy workspace-search
+supabase functions deploy calendar-events
 supabase functions deploy assistant-provider
 supabase functions deploy assistant-chat
 supabase functions deploy account-delete
@@ -150,6 +153,7 @@ The simplest public deployment is Vercel with this repository kept private. A pu
    npx supabase link --project-ref palmtswiqmajkjfskymi
    npx supabase db push
    npx supabase functions deploy workspace-search
+   npx supabase functions deploy calendar-events
    npx supabase functions deploy assistant-provider
    npx supabase functions deploy assistant-chat
    npx supabase functions deploy account-delete

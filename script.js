@@ -1,6 +1,7 @@
 import { isSupabaseConfigured, supabase } from "./src/supabase.js";
 import { initializeBudget } from "./src/budget.js";
 import { initializeLectureNotes } from "./src/lecture-notes.js";
+import { initializeCalendar } from "./src/calendar.js";
 
 const authScreen = document.querySelector("#auth-screen");
 const workspaceShell = document.querySelector("#workspace-shell");
@@ -200,10 +201,15 @@ const lectureNotes = initializeLectureNotes({
   supabase,
   getCurrentUserId: () => currentUserId,
 });
+const calendar = initializeCalendar({
+  supabase,
+  getCurrentUserId: () => currentUserId,
+});
 
 function resetPrivateWorkspace() {
   budget.reset();
   lectureNotes.reset();
+  calendar.reset();
   document.querySelector("#deadline-count").textContent = "0";
   document.querySelector("#file-count").textContent = "0";
   document.querySelector("#connected-count").textContent = "0";
@@ -411,6 +417,7 @@ async function showSignedIn(user) {
   if (isNewSession) {
     await Promise.all([
       loadPrivateWorkspaceData(user.id),
+      calendar.load(),
       loadUserPreferences(user.id),
       budget.load(user.id),
       lectureNotes.load(user.id),
@@ -1248,6 +1255,7 @@ async function disconnectProvider(provider, button) {
     showConnectionFeedback("University Hub removed the stored authorization. Revoke its provider grant in your account security settings to fully invalidate access.", "success");
     await Promise.all([
       loadPrivateWorkspaceData(currentUserId),
+      calendar.refresh(),
       budget.refresh(),
       lectureNotes.refresh(),
     ]);
@@ -1505,16 +1513,12 @@ function renderWorkspaceViews(records, connections) {
   const canvasDeadlines = upcoming
     .filter((record) => record.provider === "canvas")
     .sort((left, right) => new Date(left.due_at) - new Date(right.due_at));
-  const calendarEvents = upcoming
-    .filter((record) => ["google_calendar", "outlook_calendar"].includes(record.provider))
-    .sort((left, right) => new Date(left.due_at) - new Date(right.due_at));
   const files = records.filter((record) =>
     ["google_drive", "onedrive", "uploads"].includes(record.provider),
   );
   const messages = records.filter((record) => record.provider === "outlook_mail");
   const notes = records.filter((record) => record.provider === "onenote");
 
-  document.querySelector("#calendar-event-count").textContent = String(calendarEvents.length);
   document.querySelector("#outlook-message-count").textContent = String(messages.length);
   document.querySelector("#onenote-count").textContent = String(notes.length);
   document.querySelector("#files-page-count").textContent = String(files.length);
@@ -1525,13 +1529,6 @@ function renderWorkspaceViews(records, connections) {
     "No upcoming deadlines",
     "Canvas assignments will appear here after your account is connected and synced.",
     (record) => `Due ${formatRecordDate(record.due_at)}`,
-  );
-  renderRecordList(
-    "calendar-list",
-    calendarEvents,
-    "Your calendar is clear",
-    "Events from Google Calendar and Outlook will appear here after you connect a calendar.",
-    (record) => formatRecordDate(record.due_at),
   );
   renderRecordList(
     "files-list",
@@ -2150,7 +2147,7 @@ refreshButton.addEventListener("click", async () => {
   refreshButton.disabled = true;
   refreshMeta.textContent = "Refreshing your private workspace…";
   try {
-    await Promise.all([loadPrivateWorkspaceData(currentUserId), budget.refresh()]);
+    await Promise.all([loadPrivateWorkspaceData(currentUserId), calendar.refresh(), budget.refresh()]);
     refreshMeta.textContent = `View refreshed at ${new Intl.DateTimeFormat(undefined, {
       hour: "numeric",
       minute: "2-digit",

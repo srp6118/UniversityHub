@@ -1,4 +1,6 @@
 const MAX_AMOUNT_CENTS = 100_000_000;
+const STUDENT_WEEKLY_GUIDE_CENTS = 20_000;
+const SLIDER_SCALE_STEP_CENTS = 10_000;
 const CATEGORY_NAMES = {
   food: "Food",
   transport: "Transport",
@@ -180,6 +182,8 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
     limitInput: $("#budget-limit-input"),
     limitSave: $("#budget-limit-save"),
     limitPreview: $("#budget-limit-preview"),
+    limitPresets: $("#budget-limit-presets"),
+    limitHelp: $("#budget-limit-help"),
     categoryLimits: $("#budget-category-limits"),
     categoryPreview: $("#budget-category-preview"),
     categorySave: $("#budget-category-save"),
@@ -233,8 +237,10 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
   elements.expenseDate.value = today;
   elements.recurringDue.min = today;
   elements.eventDate.value = today;
-  elements.limitSlider.max = String(MAX_AMOUNT_CENTS);
-  elements.eventLimitSlider.max = String(MAX_AMOUNT_CENTS);
+  elements.limitSlider.max = String(STUDENT_WEEKLY_GUIDE_CENTS);
+  elements.limitSlider.step = "100";
+  elements.eventLimitSlider.max = String(STUDENT_WEEKLY_GUIDE_CENTS);
+  elements.eventLimitSlider.step = "100";
 
   let userId = null;
   let pagePeriod = periodFor("weekly");
@@ -355,9 +361,50 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
     elements.periodDates.textContent = periodRange(pagePeriod);
     elements.periodType.value = pagePeriod.type;
     elements.limitHeading.textContent = `Set your ${pagePeriod.type} limit`;
+    elements.limitHelp.textContent = pagePeriod.type === "weekly"
+      ? "The weekly guide starts at £0–£200 for day-to-day student spending, excluding rent. Choose a higher preset or enter your own amount; rent and fixed costs can be tracked separately under recurring costs."
+      : "Monthly suggestions are based on the weekly student-spending guide, excluding rent. Choose a higher preset or enter your own amount; rent and fixed costs can be tracked separately under recurring costs.";
+    const presetLabel = elements.limitPresets.querySelector("span");
+    presetLabel.textContent = pagePeriod.type === "weekly"
+      ? "Student guide & higher options"
+      : "Monthly equivalents & higher options";
+    updateBudgetPresetButtons();
+  }
+
+  function getBudgetSliderFloor() {
+    return pagePeriod.type === "weekly"
+      ? STUDENT_WEEKLY_GUIDE_CENTS
+      : Math.ceil((STUDENT_WEEKLY_GUIDE_CENTS * 52 / 12) / 100) * 100;
+  }
+
+  function setSliderScale(slider, amount, floor = getBudgetSliderFloor()) {
+    const scaledAmount = Math.ceil(Math.max(0, Number(amount) || 0) / SLIDER_SCALE_STEP_CENTS) *
+      SLIDER_SCALE_STEP_CENTS;
+    slider.max = String(Math.min(MAX_AMOUNT_CENTS, Math.max(floor, scaledAmount)));
+    slider.step = "100";
+  }
+
+  function updateBudgetPresetButtons() {
+    elements.limitPresets.querySelectorAll("[data-budget-preset]").forEach((button) => {
+      const weeklyPounds = Number(button.dataset.budgetPreset);
+      const amount = pagePeriod.type === "weekly"
+        ? weeklyPounds * 100
+        : Math.round(weeklyPounds * 52 / 12) * 100;
+      const label = formatCurrency(amount).replace(/\.00$/, "");
+      button.textContent = label;
+      button.setAttribute("aria-label", `Set ${label} ${pagePeriod.type} budget`);
+      button.setAttribute("aria-pressed", String(draftLimitCents === amount));
+    });
   }
 
   function updateLimitPreview() {
+    setSliderScale(elements.limitSlider, draftLimitCents);
+    elements.limitSlider.value = String(draftLimitCents);
+    elements.categoryLimits.querySelectorAll('input[type="range"]').forEach((slider) => {
+      const category = slider.dataset.category;
+      setSliderScale(slider, Math.max(draftLimitCents, Number(draftCategoryLimits[category] || 0)));
+    });
+    updateBudgetPresetButtons();
     const savedLimit = activeBudget ? Number(activeBudget.limit_cents) : 0;
     elements.limitPreview.hidden = draftLimitCents === savedLimit;
     const savedAllocations = Object.values(savedCategoryLimits).reduce((sum, cents) => sum + Number(cents || 0), 0);
@@ -448,8 +495,7 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
       const range = document.createElement("input");
       range.type = "range";
       range.min = "0";
-      range.max = String(MAX_AMOUNT_CENTS);
-      range.step = "1";
+      setSliderScale(range, Math.max(draftLimitCents, Number(draftCategoryLimits[category] || 0)));
       range.value = String(draftCategoryLimits[category] || 0);
       range.setAttribute("aria-label", `${label} category limit slider`);
       range.dataset.category = category;
@@ -480,6 +526,7 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
       input.addEventListener("input", () => {
         const cents = amountToCents(input.value);
         if (cents === null) return;
+        setSliderScale(range, Math.max(draftLimitCents, cents));
         range.value = String(cents);
         draftCategoryLimits[category] = cents;
         updateAllocationSummary();
@@ -617,8 +664,7 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
       const range = document.createElement("input");
       range.type = "range";
       range.min = "0";
-      range.max = String(MAX_AMOUNT_CENTS);
-      range.step = "1";
+      setSliderScale(range, Number(event.limit_cents), STUDENT_WEEKLY_GUIDE_CENTS);
       range.value = "0";
       range.setAttribute("aria-label", `Planned spending for ${event.name} slider`);
       range.addEventListener("input", () => {
@@ -628,6 +674,7 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
       plannedInput.addEventListener("input", () => {
         const cents = amountToCents(plannedInput.value);
         if (cents !== null) {
+          setSliderScale(range, cents, STUDENT_WEEKLY_GUIDE_CENTS);
           range.value = String(Math.min(Number(range.max), cents));
           updateEventPlanOutputs();
         }
@@ -775,6 +822,7 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
 
   function renderPage() {
     updatePeriodHeading();
+    setSliderScale(elements.limitSlider, draftLimitCents);
     elements.limitInput.value = centsToInput(draftLimitCents);
     elements.limitSlider.value = String(draftLimitCents);
     elements.limitPreview.hidden = draftLimitCents === Number(activeBudget?.limit_cents || 0);
@@ -1094,6 +1142,7 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
     input.addEventListener("input", () => {
       const cents = amountToCents(input.value);
       if (cents === null) return;
+      setSliderScale(slider, cents, STUDENT_WEEKLY_GUIDE_CENTS);
       slider.value = String(cents);
       onUpdate(cents);
     });
@@ -1104,6 +1153,7 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
     elements.eventId.value = "";
     elements.eventDate.value = localDateString();
     elements.eventLimit.value = "50.00";
+    setSliderScale(elements.eventLimitSlider, 5000, STUDENT_WEEKLY_GUIDE_CENTS);
     elements.eventLimitSlider.value = "5000";
     elements.eventSave.textContent = "Add event";
     elements.eventCancel.hidden = true;
@@ -1134,6 +1184,7 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
     elements.eventDate.value = event.event_on;
     elements.eventNote.value = event.note || "";
     elements.eventLimit.value = centsToInput(Number(event.limit_cents));
+    setSliderScale(elements.eventLimitSlider, Number(event.limit_cents), STUDENT_WEEKLY_GUIDE_CENTS);
     elements.eventLimitSlider.value = String(event.limit_cents);
     elements.eventSave.textContent = "Save event";
     elements.eventCancel.hidden = false;
@@ -1339,6 +1390,18 @@ export function initializeBudget({ supabase, getCurrentUserId, getCurrentUserEma
     draftLimitCents = cents;
     elements.limitSlider.value = String(cents);
     updateLimitPreview();
+  });
+  elements.limitPresets.querySelectorAll("[data-budget-preset]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const weeklyPounds = Number(button.dataset.budgetPreset);
+      draftLimitCents = pagePeriod.type === "weekly"
+        ? weeklyPounds * 100
+        : Math.round(weeklyPounds * 52 / 12) * 100;
+      elements.limitInput.value = centsToInput(draftLimitCents);
+      setSliderScale(elements.limitSlider, draftLimitCents);
+      elements.limitSlider.value = String(draftLimitCents);
+      updateLimitPreview();
+    });
   });
   elements.categorySave.addEventListener("click", () => void saveCategoryLimits());
   elements.periodType.addEventListener("change", () => {
