@@ -1,6 +1,5 @@
-const AUDIO_BUCKET = "lecture-audio-temp";
-const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
 const MAX_RECORDING_SECONDS = 3 * 60 * 60;
+const MAX_TRANSCRIPT_LENGTH = 200_000;
 const NOTE_PAGE_SIZE = 50;
 
 function localDateString(date = new Date()) {
@@ -26,26 +25,20 @@ function formatDuration(value) {
     : `${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`;
 }
 
-async function functionErrorMessage(error) {
-  const response = error?.context;
-  if (response instanceof Response) {
-    try {
-      const body = await response.clone().json();
-      if (typeof body?.error === "string" && body.error.trim()) return body.error;
-    } catch {
-      // Use the function client's message when the response is not JSON.
-    }
-  }
-  return error?.message || "The lecture could not be transcribed. Please try again.";
+function getSpeechRecognitionConstructor() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition;
 }
 
-function audioExtension(contentType) {
-  if (contentType.includes("mp4")) return "m4a";
-  if (contentType.includes("ogg")) return "ogg";
-  if (contentType.includes("mpeg")) return "mp3";
-  if (contentType.includes("wav")) return "wav";
-  if (contentType.includes("aac")) return "aac";
-  return "webm";
+function speechErrorMessage(code) {
+  const messages = {
+    "audio-capture": "No microphone was found. Connect a microphone and try again.",
+    "language-not-supported": "This browser does not support speech recognition for your language.",
+    "network": "The browser speech service is unavailable. Check your internet connection and try again.",
+    "no-speech": "No speech was detected. Try again in a quieter place.",
+    "not-allowed": "Microphone or speech recognition access was denied. Allow access in your browser settings.",
+    "service-not-allowed": "This browser's speech recognition service is unavailable. Try another supported browser.",
+  };
+  return messages[code] || "Speech recognition stopped unexpectedly. Please try again.";
 }
 
 export function initializeLectureNotes({ supabase, getCurrentUserId }) {
@@ -58,6 +51,7 @@ export function initializeLectureNotes({ supabase, getCurrentUserId }) {
     recordButton: $("#lecture-record-button"),
     recordingIndicator: $("#lecture-recording-indicator"),
     timer: $("#lecture-recording-timer"),
+    livePreview: $("#lecture-live-preview"),
     recordingFeedback: $("#lecture-recording-feedback"),
     notesCount: $("#lecture-notes-count"),
     notesStatus: $("#lecture-notes-status"),
@@ -183,12 +177,7 @@ export function initializeLectureNotes({ supabase, getCurrentUserId }) {
     setMessage(elements.notesStatus, "Transcript deleted.");
   }
 
-  function stopRunResources(run) {
-    stopRunTimer(run);
-    for (const track of run.stream.getTracks()) track.stop();
-  }
-
-  function stopRunTimer(run) {
+  function stopTimer(run) {
     if (run.timer !== null) window.clearInterval(run.timer);
     run.timer = null;
   }
@@ -196,7 +185,7 @@ export function initializeLectureNotes({ supabase, getCurrentUserId }) {
   function setRecordingUi(isRecording) {
     elements.recordButton.classList.toggle("is-recording", isRecording);
     elements.recordButton.innerHTML = isRecording
-      ? "<span aria-hidden=\"true\">■</span> Stop &amp; transcribe"
+      ? "<span aria-hidden=\"true\">■</span> Stop &amp; save transcript"
       : "<span aria-hidden=\"true\">●</span> Start recording";
     elements.recordButton.setAttribute("aria-pressed", String(isRecording));
     elements.recordingIndicator.hidden = !isRecording;
@@ -206,248 +195,203 @@ export function initializeLectureNotes({ supabase, getCurrentUserId }) {
     const run = recordingRun;
     if (!run) return;
     run.discard = true;
-    stopRunTimer(run);
-    if (run.recorder.state !== "inactive") {
-      run.recorder.stop();
-    } else {
-      stopRunResources(run);
-    }
+    stopTimer(run);
     recordingRun = null;
+    setRecordingUi(false);
     elements.recordButton.disabled = false;
     elements.timer.textContent = "00:00";
-    setRecordingUi(false);
+    elements.livePreview.hidden = true;
+    run.recognition.abort();
   }
 
-  async function uploadAndTranscribe(run, audio, contentType) {
-    const storagePath = `${run.userId}/${crypto.randomUUID()}.${audioExtension(contentType)}`;
-    const { error: uploadError } = await supabase.storage
-      .from(AUDIO_BUCKET)
-      .upload(storagePath, audio, {
-        cacheControl: "0",
-        contentType,
-        upsert: false,
-      });
-    if (uploadError) {
-      throw new Error("Could not upload the temporary recording. Check your connection and try again.");
+  function updateLivePreview(run, interimTranscript = "") {
+    const text = [run.transcript.trim(), interimTranscript.trim()].filter(Boolean).join(" ");
+    elements.livePreview.textContent = text || "Listening for speech…";
+  }
+
+  async function saveTranscript(run) {
+    if (run.discard || !isCurrentUser(run.userId)) return;
+    const transcript = run.transcript.trim();
+    if (!transcript) {
+      setMessage(elements.recordingFeedback, "No speech was captured. Check microphone access and try again.", true);
+      return;
+    }
+    if (transcript.length > MAX_TRANSCRIPT_LENGTH) {
+      setMessage(elements.recordingFeedback, "This transcript is too long to save. Try recording a shorter section.", true);
+      return;
     }
 
-    let responseData;
+    elements.recordButton.disabled = true;
+    setMessage(elements.recordingFeedback, "Saving your private transcript…");
     try {
-      const { data, error } = await supabase.functions.invoke("transcribe-lecture", {
-        body: {
-          storagePath,
+      const { data: note, error } = await supabase
+        .from("lecture_notes")
+        .insert({
+          user_id: run.userId,
           title: run.title,
-          recordedOn: run.recordedOn,
-          durationSeconds: run.durationSeconds,
-        },
-      });
-      if (error) throw new Error(await functionErrorMessage(error));
-      responseData = data;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "The lecture could not be transcribed.";
-      const { error: cleanupError } = await supabase.storage.from(AUDIO_BUCKET).remove([storagePath]);
-      if (cleanupError) {
-        throw new Error(`${message} The temporary recording could not be removed automatically; please contact support.`);
+          recorded_on: run.recordedOn,
+          duration_seconds: Math.max(1, Math.min(MAX_RECORDING_SECONDS, run.durationSeconds)),
+          transcript,
+        })
+        .select("id, title, recorded_on, duration_seconds, transcript, created_at")
+        .single();
+      if (!isCurrentUser(run.userId)) return;
+      if (error || !note) {
+        throw new Error("Could not save your transcript. Please check your connection and try again.");
       }
-      throw new Error(message);
-    }
-
-    if (!responseData?.note || typeof responseData.note.transcript !== "string") {
-      throw new Error("The transcription service returned an invalid response. Please try again.");
-    }
-    return responseData.note;
-  }
-
-  function finishRecording(run) {
-    if (run.recorder.state === "inactive") return;
-    run.durationSeconds = Math.max(1, Math.floor((Date.now() - run.startedAt) / 1000));
-    elements.recordButton.disabled = true;
-    stopRunTimer(run);
-    run.recorder.stop();
-  }
-
-  async function handleRecordingStopped(run) {
-    stopRunResources(run);
-    if (run.discard) return;
-    if (recordingRun === run) recordingRun = null;
-    setRecordingUi(false);
-    elements.recordButton.disabled = false;
-
-    if (run.recordingError) {
-      setMessage(elements.recordingFeedback, run.recordingError, true);
-      return;
-    }
-    if (run.overLimit) {
-      setMessage(elements.recordingFeedback, "This recording reached the 20 MB limit. Try a shorter lecture.", true);
-      return;
-    }
-
-    const contentType = (run.recorder.mimeType || run.chunks[0]?.type || "audio/webm").split(";")[0];
-    const audio = new Blob(run.chunks, { type: contentType });
-    if (!audio.size) {
-      setMessage(elements.recordingFeedback, "No audio was captured. Check microphone access and try again.", true);
-      return;
-    }
-    if (audio.size > MAX_AUDIO_BYTES) {
-      setMessage(elements.recordingFeedback, "This recording is over the 20 MB limit. Try a shorter lecture.", true);
-      return;
-    }
-
-    const userId = run.userId;
-    elements.recordButton.disabled = true;
-    setMessage(elements.recordingFeedback, "Uploading securely and transcribing with OpenAI…");
-    try {
-      const note = await uploadAndTranscribe(run, audio, contentType);
-      if (!isCurrentUser(userId)) return;
       notes = [note, ...notes.filter((entry) => entry.id !== note.id)]
         .sort((left, right) => String(right.created_at).localeCompare(String(left.created_at)));
+      hasMoreNotes = notes.length > NOTE_PAGE_SIZE;
+      notes = notes.slice(0, NOTE_PAGE_SIZE);
       renderNotes();
       setMessage(elements.recordingFeedback, "Transcript saved to your private lecture notes.");
     } catch (error) {
-      if (isCurrentUser(userId)) {
+      if (isCurrentUser(run.userId)) {
         setMessage(
           elements.recordingFeedback,
-          error instanceof Error ? error.message : "The lecture could not be transcribed. Please try again.",
+          error instanceof Error ? error.message : "Could not save your transcript. Please try again.",
           true,
         );
       }
     } finally {
-      elements.recordButton.disabled = false;
+      if (isCurrentUser(run.userId)) elements.recordButton.disabled = false;
     }
   }
 
-  async function startRecording() {
+  function finishRecording(run) {
+    if (run.stopping || run.discard) return;
+    run.stopping = true;
+    run.durationSeconds = Math.max(1, Math.floor((Date.now() - run.startedAt) / 1000));
+    stopTimer(run);
+    elements.recordButton.disabled = true;
+    setMessage(elements.recordingFeedback, "Finishing your transcript…");
+    run.recognition.stop();
+  }
+
+  function startRecording() {
+    const SpeechRecognition = getSpeechRecognitionConstructor();
     const userId = getCurrentUserId();
     if (!userId || !supabase) {
       setMessage(elements.recordingFeedback, "Sign in before recording a lecture.", true);
       return;
     }
     if (!elements.recordForm.reportValidity()) return;
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setMessage(elements.recordingFeedback, "This browser does not support microphone recording. Try a recent version of Safari, Chrome, or Firefox.", true);
+    if (!SpeechRecognition) {
+      setMessage(elements.recordingFeedback, "This browser does not support built-in speech recognition. Try a current version of Chrome or Safari.", true);
+      return;
+    }
+    if (!window.isSecureContext) {
+      setMessage(elements.recordingFeedback, "Microphone access requires a secure HTTPS connection.", true);
+      return;
+    }
+    if (!navigator.onLine) {
+      setMessage(elements.recordingFeedback, "Connect to the internet before starting browser speech recognition.", true);
       return;
     }
 
-    elements.recordButton.disabled = true;
-    setMessage(elements.recordingFeedback, "Requesting microphone access…");
-    let stream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true },
-      });
-      if (!isCurrentUser(userId)) {
-        for (const track of stream.getTracks()) track.stop();
-        return;
-      }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = navigator.language || "en-GB";
 
-      setMessage(elements.recordingFeedback, "Checking your OpenAI connection…");
-      const { data: providerStatus, error: providerStatusError } = await supabase.functions.invoke(
-        "assistant-provider",
-        { body: { action: "status", provider: "openai" } },
-      );
-      if (providerStatusError) {
-        throw new Error(await functionErrorMessage(providerStatusError));
-      }
-      if (!isCurrentUser(userId)) {
-        for (const track of stream.getTracks()) track.stop();
-        elements.recordButton.disabled = false;
-        return;
-      }
-      if (!providerStatus?.providers?.openai) {
-        for (const track of stream.getTracks()) track.stop();
-        stream = undefined;
-        elements.recordButton.disabled = false;
-        setMessage(elements.recordingFeedback, "Connect an OpenAI API key in Connections before recording.", true);
-        return;
-      }
+    const run = {
+      userId,
+      title: elements.title.value.trim(),
+      recordedOn: elements.date.value,
+      startedAt: Date.now(),
+      durationSeconds: 0,
+      recognition,
+      transcript: "",
+      timer: null,
+      stopping: false,
+      discard: false,
+      error: "",
+    };
+    recordingRun = run;
 
-      const preferredTypes = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm", "audio/ogg;codecs=opus"];
-      const mimeType = preferredTypes.find((type) => MediaRecorder.isTypeSupported(type));
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-      const run = {
-        userId,
-        title: elements.title.value.trim(),
-        recordedOn: elements.date.value,
-        startedAt: Date.now(),
-        durationSeconds: 0,
-        recorder,
-        stream,
-        chunks: [],
-        totalBytes: 0,
-        timer: null,
-        discard: false,
-        overLimit: false,
-        recordingError: "",
-      };
-      recordingRun = run;
-      recorder.addEventListener("dataavailable", (event) => {
-        if (event.data.size) {
-          run.chunks.push(event.data);
-          run.totalBytes += event.data.size;
+    recognition.onresult = (event) => {
+      let interimTranscript = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const phrase = result[0]?.transcript?.trim();
+        if (!phrase) continue;
+        if (result.isFinal) {
+          run.transcript = `${run.transcript} ${phrase}`.trim();
+        } else {
+          interimTranscript = `${interimTranscript} ${phrase}`.trim();
         }
-        if (run.totalBytes > MAX_AUDIO_BYTES) {
-          run.overLimit = true;
-          if (recorder.state === "recording") recorder.stop();
-        }
-      });
-      recorder.addEventListener("error", () => {
-        run.recordingError = "Recording stopped unexpectedly. Check your microphone and try again.";
-      });
-      recorder.addEventListener("stop", () => {
-        void handleRecordingStopped(run);
-      }, { once: true });
+      }
+      updateLivePreview(run, interimTranscript);
+      if (run.transcript.length > MAX_TRANSCRIPT_LENGTH) {
+        run.error = "This transcript is too long to save. Stop recording and try a shorter section.";
+        finishRecording(run);
+      }
+    };
 
-      recorder.start(1000);
+    recognition.onerror = (event) => {
+      if (event.error === "aborted" && run.stopping) return;
+      run.error = speechErrorMessage(event.error);
+    };
+
+    recognition.onend = () => {
+      stopTimer(run);
+      if (run.discard || !isCurrentUser(run.userId)) return;
+      if (recordingRun === run) recordingRun = null;
+      setRecordingUi(false);
       elements.recordButton.disabled = false;
+      elements.livePreview.hidden = true;
+      run.durationSeconds = Math.max(1, Math.floor((Date.now() - run.startedAt) / 1000));
+
+      if (run.error) {
+        setMessage(elements.recordingFeedback, run.error, true);
+        return;
+      }
+      void saveTranscript(run);
+    };
+
+    try {
+      elements.livePreview.hidden = false;
+      updateLivePreview(run);
       elements.timer.textContent = "00:00";
+      elements.recordButton.disabled = true;
       setRecordingUi(true);
-      setMessage(elements.recordingFeedback, "Recording on this device. Stop when you’re ready to transcribe.");
+      setMessage(elements.recordingFeedback, "Starting your browser’s speech recognition…");
+      recognition.start();
+      elements.recordButton.disabled = false;
+      setMessage(elements.recordingFeedback, "Recording and transcribing in your browser. Stop when you’re ready to save.");
       run.timer = window.setInterval(() => {
         run.durationSeconds = Math.floor((Date.now() - run.startedAt) / 1000);
         elements.timer.textContent = formatDuration(run.durationSeconds);
-        if (run.durationSeconds >= MAX_RECORDING_SECONDS && recorder.state === "recording") {
-          setMessage(elements.recordingFeedback, "The three-hour recording limit was reached; transcribing now.");
-          void finishRecording(run);
+        if (run.durationSeconds >= MAX_RECORDING_SECONDS) {
+          setMessage(elements.recordingFeedback, "The three-hour recording limit was reached; saving your transcript.");
+          finishRecording(run);
         }
       }, 1000);
     } catch (error) {
-      const failedRun = recordingRun?.stream === stream ? recordingRun : null;
-      if (failedRun) {
-        failedRun.discard = true;
-        stopRunTimer(failedRun);
-        if (failedRun.recorder.state !== "inactive") {
-          failedRun.recorder.stop();
-        } else {
-          stopRunResources(failedRun);
-        }
-        recordingRun = null;
-      } else if (stream) {
-        for (const track of stream.getTracks()) track.stop();
-      }
-      if (!isCurrentUser(userId)) return;
+      recordingRun = null;
+      setRecordingUi(false);
       elements.recordButton.disabled = false;
+      elements.livePreview.hidden = true;
       const message = error instanceof Error && error.name === "NotAllowedError"
-        ? "Microphone access was denied. Allow microphone access in your browser settings and try again."
-        : error instanceof Error && error.name === "NotFoundError"
-          ? "No microphone was found on this device."
-          : error instanceof Error
-            ? error.message
-            : "Could not start recording. Please try again.";
+        ? "Microphone access was denied. Allow access in your browser settings and try again."
+        : error instanceof Error
+          ? error.message
+          : "Could not start speech recognition. Please try again.";
       setMessage(elements.recordingFeedback, message, true);
     }
   }
 
   elements.recordButton.addEventListener("click", () => {
     if (recordingRun) {
-      void finishRecording(recordingRun);
+      finishRecording(recordingRun);
     } else {
-      void startRecording();
+      startRecording();
     }
   });
   window.addEventListener("hashchange", () => {
     if (window.location.hash !== "#lecture-notes" && recordingRun) {
       cancelRecording();
-      setMessage(elements.recordingFeedback, "Recording stopped because you left Lecture notes. No audio was saved.");
+      setMessage(elements.recordingFeedback, "Recording stopped because you left Lecture notes. No transcript was saved.");
     }
   });
 
@@ -514,6 +458,7 @@ export function initializeLectureNotes({ supabase, getCurrentUserId }) {
     elements.recordButton.disabled = false;
     elements.loadMore.disabled = false;
     elements.timer.textContent = "00:00";
+    elements.livePreview.hidden = true;
     setRecordingUi(false);
     setMessage(elements.recordingFeedback, "");
     setMessage(elements.notesStatus, "");

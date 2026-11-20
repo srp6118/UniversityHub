@@ -38,14 +38,6 @@ set public = false,
     file_size_limit = 20971520,
     allowed_mime_types = excluded.allowed_mime_types;
 
-create policy "Users can upload their own temporary lecture audio"
-  on storage.objects for insert
-  to authenticated
-  with check (
-    bucket_id = 'lecture-audio-temp'
-    and (storage.foldername(name))[1] = (select auth.uid())::text
-  );
-
 create policy "Users can remove their own temporary lecture audio"
   on storage.objects for delete
   to authenticated
